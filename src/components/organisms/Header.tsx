@@ -31,9 +31,12 @@ export function Header({ title, subtitle, rightAction }: HeaderProps) {
 const styles = StyleSheet.create({
   container: {
     alignItems: 'flex-start',
+    flexDirection: 'row',
     gap: 16,
+    justifyContent: 'space-between',
   },
   content: {
+    flex: 1,
     gap: 8,
   },
   subtitle: {
