@@ -6,6 +6,7 @@ import type { ContractFile, ContractType } from '@/types';
 
 import {
   AppButton,
+  DateField,
   AppIconButton,
   AppInput,
   AppText,
@@ -18,7 +19,7 @@ import {
 import { useAppContext } from '@/context';
 import { useAppTheme } from '@/theme';
 import { useProjects, useWorkLogs } from '@/hooks';
-import { addMonths, formatCurrency, fromDateKey, isIsoDateString, parseDecimalInput, toDateKey } from '@/utils';
+import { addMonths, formatCurrency, fromDateKey, parseDecimalInput, toDateKey } from '@/utils';
 
 const CONTRACT_TYPES: ContractType[] = ['hourly', 'temporary', 'part-time', 'full-time', 'freelance'];
 
@@ -123,7 +124,7 @@ function ContractFilePreview({ contractFile }: { contractFile?: ContractFile }) 
 
 export function HomeScreen() {
   const theme = useAppTheme();
-  const { themeMode, toggleThemeMode } = useAppContext();
+  const { isHydrated, themeMode, toggleThemeMode } = useAppContext();
   const { projects, createProject, updateProject, deleteProject } = useProjects();
   const today = useMemo(() => new Date(), []);
   const [selectedDate, setSelectedDate] = useState(toDateKey(today));
@@ -158,11 +159,7 @@ export function HomeScreen() {
   }, [projects, selectedProjectId]);
 
   const parsedHourlyRate = parseDecimalInput(hourlyRateValue);
-  const canCreateProject =
-    Boolean(projectName.trim()) &&
-    parsedHourlyRate !== null &&
-    parsedHourlyRate > 0 &&
-    isIsoDateString(startDate);
+  const canCreateProject = Boolean(projectName.trim()) && parsedHourlyRate !== null && parsedHourlyRate > 0;
   const resetProjectModal = () => {
     setProjectModalVisible(false);
     setProjectName('');
@@ -198,6 +195,8 @@ export function HomeScreen() {
         }
         contentContainerStyle={styles.content}
       >
+        {!isHydrated ? <AppText color="muted">Loading saved data...</AppText> : null}
+
         <WorkCalendar
           selectedDate={selectedDate}
           visibleMonth={visibleMonth}
@@ -261,12 +260,7 @@ export function HomeScreen() {
               placeholder="Hourly rate in EUR"
               value={hourlyRateValue}
             />
-            <AppInput onChangeText={setStartDate} placeholder="Start date (YYYY-MM-DD)" value={startDate} />
-            {!isIsoDateString(startDate) && startDate.length > 0 ? (
-              <AppText color="danger" variant="bodySmall">
-                Use the format YYYY-MM-DD.
-              </AppText>
-            ) : null}
+            <DateField label="Start date" onChange={setStartDate} value={startDate} />
             <View style={styles.modalSection}>
               <AppText variant="bodySmall" color="muted">
                 Contract type

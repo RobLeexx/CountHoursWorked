@@ -1,14 +1,15 @@
 import { useMemo, useState } from 'react';
-import { Image, Linking, Pressable, StyleSheet, View } from 'react-native';
+import { Image, Linking, Modal, Pressable, StyleSheet, View } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 
 import type { ContractFile, ContractType, CreateProjectInput, Project, UpdateProjectInput } from '@/types';
 import { useAppTheme } from '@/theme';
-import { formatCurrency, isIsoDateString, parseDecimalInput } from '@/utils';
+import { formatCurrency, parseDecimalInput, toDateKey } from '@/utils';
 
 import { AppButton } from '../atoms/AppButton';
 import { AppInput } from '../atoms/AppInput';
 import { AppText } from '../atoms/AppText';
+import { DateField } from '../molecules/DateField';
 
 const CONTRACT_TYPES: ContractType[] = ['hourly', 'temporary', 'part-time', 'full-time', 'freelance'];
 
@@ -146,8 +147,7 @@ function ProjectForm({ title, submitLabel, initialValues, onSubmit, onCancel }: 
   const [contractFile, setContractFile] = useState<ContractFile | undefined>(initialValues.contractFile);
 
   const parsedRate = parseDecimalInput(hourlyRate);
-  const isStartDateValid = isIsoDateString(startDate);
-  const canSubmit = Boolean(name.trim()) && parsedRate !== null && parsedRate > 0 && isStartDateValid;
+  const canSubmit = Boolean(name.trim()) && parsedRate !== null && parsedRate > 0;
 
   return (
     <View
@@ -170,13 +170,7 @@ function ProjectForm({ title, submitLabel, initialValues, onSubmit, onCancel }: 
         placeholder="Hourly rate in EUR"
         value={hourlyRate}
       />
-      <AppInput onChangeText={setStartDate} placeholder="Start date (YYYY-MM-DD)" value={startDate} />
-
-      {!isStartDateValid && startDate.length > 0 ? (
-        <AppText color="danger" variant="bodySmall">
-          Use the format YYYY-MM-DD.
-        </AppText>
-      ) : null}
+      <DateField label="Start date" onChange={setStartDate} value={startDate} />
 
       <View style={styles.fieldBlock}>
         <AppText variant="bodySmall" color="muted">
@@ -238,6 +232,7 @@ export function ProjectsManager({
   const theme = useAppTheme();
   const [isOpen, setIsOpen] = useState(false);
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
+  const [projectPendingDelete, setProjectPendingDelete] = useState<Project | null>(null);
   const editingProject = useMemo(
     () => projects.find((project) => project.id === editingProjectId),
     [editingProjectId, projects],
@@ -273,7 +268,7 @@ export function ProjectsManager({
               name: '',
               hourlyRate: '',
               contractType: 'hourly',
-              startDate: '',
+              startDate: toDateKey(new Date()),
             }}
             onSubmit={(values) => {
               const project = onCreateProject(values as CreateProjectInput);
@@ -317,13 +312,7 @@ export function ProjectsManager({
                       />
                       <AppButton
                         title="Delete"
-                        onPress={() => {
-                          if (editingProjectId === project.id) {
-                            setEditingProjectId(null);
-                          }
-
-                          onDeleteProject(project.id);
-                        }}
+                        onPress={() => setProjectPendingDelete(project)}
                         variant="ghost"
                         fullWidth={false}
                       />
@@ -357,6 +346,56 @@ export function ProjectsManager({
           )}
         </View>
       ) : null}
+
+      <Modal
+        animationType="fade"
+        transparent
+        visible={Boolean(projectPendingDelete)}
+        onRequestClose={() => setProjectPendingDelete(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View
+            style={[
+              styles.modalCard,
+              {
+                backgroundColor: theme.colors.surface,
+                borderColor: theme.colors.border,
+              },
+            ]}
+          >
+            <AppText variant="title" weight="bold">
+              Delete project?
+            </AppText>
+            <AppText color="muted">
+              {projectPendingDelete
+                ? `This will remove "${projectPendingDelete.name}" and all of its logged hours.`
+                : 'This action cannot be undone.'}
+            </AppText>
+            <View style={styles.modalActions}>
+              <AppButton
+                title="Cancel"
+                onPress={() => setProjectPendingDelete(null)}
+                variant="secondary"
+                fullWidth={false}
+              />
+              <AppButton
+                title="Delete"
+                onPress={() => {
+                  if (projectPendingDelete) {
+                    if (editingProjectId === projectPendingDelete.id) {
+                      setEditingProjectId(null);
+                    }
+
+                    onDeleteProject(projectPendingDelete.id);
+                    setProjectPendingDelete(null);
+                  }
+                }}
+                fullWidth={false}
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -423,6 +462,25 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   projectButtons: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  modalOverlay: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(15, 23, 42, 0.4)',
+    flex: 1,
+    justifyContent: 'center',
+    padding: 24,
+  },
+  modalCard: {
+    borderRadius: 20,
+    borderWidth: 1,
+    gap: 14,
+    maxWidth: 420,
+    padding: 20,
+    width: '100%',
+  },
+  modalActions: {
     flexDirection: 'row',
     gap: 10,
   },

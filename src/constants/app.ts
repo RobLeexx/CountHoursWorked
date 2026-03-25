@@ -6,6 +6,6 @@ export const APP_CONFIG = {
 
 export const STORAGE_KEYS = {
   themeMode: 'theme-mode',
-  session: 'session',
+  projects: 'projects',
+  workLogs: 'work-logs',
 } as const;
-
