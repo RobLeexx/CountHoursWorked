@@ -1,16 +1,130 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Modal, Pressable, StyleSheet, View } from 'react-native';
+import { Image, Linking, Modal, Pressable, StyleSheet, View } from 'react-native';
+import * as DocumentPicker from 'expo-document-picker';
 
-import { AppButton, AppIconButton, AppInput, AppText, DayDetails, MainLayout, Summary, WorkCalendar } from '@/components';
+import type { ContractFile, ContractType } from '@/types';
+
+import {
+  AppButton,
+  AppIconButton,
+  AppInput,
+  AppText,
+  DayDetails,
+  MainLayout,
+  ProjectsManager,
+  Summary,
+  WorkCalendar,
+} from '@/components';
 import { useAppContext } from '@/context';
 import { useAppTheme } from '@/theme';
 import { useProjects, useWorkLogs } from '@/hooks';
-import { addMonths, fromDateKey, parseDecimalInput, toDateKey } from '@/utils';
+import { addMonths, formatCurrency, fromDateKey, isIsoDateString, parseDecimalInput, toDateKey } from '@/utils';
+
+const CONTRACT_TYPES: ContractType[] = ['hourly', 'temporary', 'part-time', 'full-time', 'freelance'];
+
+async function pickContractFile() {
+  const result = await DocumentPicker.getDocumentAsync({
+    copyToCacheDirectory: true,
+    multiple: false,
+    type: ['image/*', 'application/pdf'],
+  });
+
+  if (result.canceled) {
+    return undefined;
+  }
+
+  const asset = result.assets[0];
+
+  return {
+    uri: asset.uri,
+    name: asset.name,
+    mimeType: asset.mimeType ?? 'application/octet-stream',
+  } satisfies ContractFile;
+}
+
+function ContractTypeSelector({
+  value,
+  onChange,
+}: {
+  value: ContractType;
+  onChange: (value: ContractType) => void;
+}) {
+  const theme = useAppTheme();
+
+  return (
+    <View style={styles.typeList}>
+      {CONTRACT_TYPES.map((type) => {
+        const isSelected = type === value;
+
+        return (
+          <Pressable
+            key={type}
+            onPress={() => onChange(type)}
+            style={[
+              styles.typeChip,
+              {
+                backgroundColor: isSelected ? theme.colors.primary : theme.colors.surfaceMuted,
+                borderColor: isSelected ? theme.colors.primary : theme.colors.border,
+              },
+            ]}
+          >
+            <AppText color={isSelected ? 'inverse' : 'text'} variant="bodySmall" weight="semibold">
+              {type}
+            </AppText>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+function ContractFilePreview({ contractFile }: { contractFile?: ContractFile }) {
+  const theme = useAppTheme();
+
+  if (!contractFile) {
+    return null;
+  }
+
+  const isImage = contractFile.mimeType.startsWith('image/');
+  const isPdf = contractFile.mimeType === 'application/pdf';
+
+  return (
+    <View style={styles.contractPreview}>
+      <AppText variant="bodySmall" weight="semibold">
+        {contractFile.name}
+      </AppText>
+      {isImage ? (
+        <Image source={{ uri: contractFile.uri }} style={styles.contractPreviewImage} resizeMode="cover" />
+      ) : null}
+      {isPdf ? (
+        <View
+          style={[
+            styles.pdfPreview,
+            {
+              borderColor: theme.colors.border,
+              backgroundColor: theme.colors.surfaceMuted,
+            },
+          ]}
+        >
+          <AppText color="muted">PDF attached</AppText>
+        </View>
+      ) : null}
+      <AppButton
+        title={isPdf ? 'Open PDF' : 'Open file'}
+        onPress={() => {
+          void Linking.openURL(contractFile.uri);
+        }}
+        variant="secondary"
+        fullWidth={false}
+      />
+    </View>
+  );
+}
 
 export function HomeScreen() {
   const theme = useAppTheme();
   const { themeMode, toggleThemeMode } = useAppContext();
-  const { projects, createProject } = useProjects();
+  const { projects, createProject, updateProject, deleteProject } = useProjects();
   const today = useMemo(() => new Date(), []);
   const [selectedDate, setSelectedDate] = useState(toDateKey(today));
   const [visibleMonth, setVisibleMonth] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
@@ -18,6 +132,9 @@ export function HomeScreen() {
   const [isProjectModalVisible, setProjectModalVisible] = useState(false);
   const [projectName, setProjectName] = useState('');
   const [hourlyRateValue, setHourlyRateValue] = useState('');
+  const [contractType, setContractType] = useState<ContractType>('hourly');
+  const [startDate, setStartDate] = useState(toDateKey(today));
+  const [contractFile, setContractFile] = useState<ContractFile | undefined>();
   const {
     workLogs,
     dayLogs,
@@ -30,17 +147,29 @@ export function HomeScreen() {
   } = useWorkLogs(selectedDate);
 
   useEffect(() => {
-    if (!selectedProjectId && projects[0]) {
+    if (projects.length === 0) {
+      setSelectedProjectId('');
+      return;
+    }
+
+    if (!projects.some((project) => project.id === selectedProjectId)) {
       setSelectedProjectId(projects[0].id);
     }
   }, [projects, selectedProjectId]);
 
   const parsedHourlyRate = parseDecimalInput(hourlyRateValue);
-  const canCreateProject = Boolean(projectName.trim()) && parsedHourlyRate !== null && parsedHourlyRate > 0;
+  const canCreateProject =
+    Boolean(projectName.trim()) &&
+    parsedHourlyRate !== null &&
+    parsedHourlyRate > 0 &&
+    isIsoDateString(startDate);
   const resetProjectModal = () => {
     setProjectModalVisible(false);
     setProjectName('');
     setHourlyRateValue('');
+    setContractType('hourly');
+    setStartDate(toDateKey(new Date()));
+    setContractFile(undefined);
   };
 
   const changeMonth = (direction: 'previous' | 'next') => {
@@ -97,6 +226,13 @@ export function HomeScreen() {
           onSaveHours={setHoursForProject}
           onClearHours={clearHoursForProject}
         />
+
+        <ProjectsManager
+          projects={projects}
+          onCreateProject={createProject}
+          onUpdateProject={updateProject}
+          onDeleteProject={deleteProject}
+        />
       </MainLayout>
 
       <Modal
@@ -125,6 +261,39 @@ export function HomeScreen() {
               placeholder="Hourly rate in EUR"
               value={hourlyRateValue}
             />
+            <AppInput onChangeText={setStartDate} placeholder="Start date (YYYY-MM-DD)" value={startDate} />
+            {!isIsoDateString(startDate) && startDate.length > 0 ? (
+              <AppText color="danger" variant="bodySmall">
+                Use the format YYYY-MM-DD.
+              </AppText>
+            ) : null}
+            <View style={styles.modalSection}>
+              <AppText variant="bodySmall" color="muted">
+                Contract type
+              </AppText>
+              <ContractTypeSelector value={contractType} onChange={setContractType} />
+            </View>
+            <View style={styles.modalSection}>
+              <AppText variant="bodySmall" color="muted">
+                Contract file
+              </AppText>
+              <AppButton
+                title={contractFile ? 'Replace file' : 'Upload contract'}
+                onPress={async () => {
+                  const file = await pickContractFile();
+
+                  if (file) {
+                    setContractFile(file);
+                  }
+                }}
+                variant="secondary"
+                fullWidth={false}
+              />
+              <ContractFilePreview contractFile={contractFile} />
+            </View>
+            <AppText color="muted" variant="bodySmall">
+              {parsedHourlyRate ? `Rate preview: ${formatCurrency(parsedHourlyRate)}/h` : 'Set the hourly rate in EUR.'}
+            </AppText>
             <View style={styles.modalActions}>
               <AppButton
                 title="Cancel"
@@ -136,7 +305,13 @@ export function HomeScreen() {
                 title="Create"
                 onPress={() => {
                   if (canCreateProject && parsedHourlyRate !== null) {
-                    const project = createProject({ name: projectName, hourlyRate: parsedHourlyRate });
+                    const project = createProject({
+                      name: projectName,
+                      hourlyRate: parsedHourlyRate,
+                      contractType,
+                      startDate,
+                      contractFile,
+                    });
 
                     if (project) {
                       setSelectedProjectId(project.id);
@@ -191,7 +366,36 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 10,
   },
+  modalSection: {
+    gap: 8,
+  },
   closeZone: {
     paddingVertical: 4,
+  },
+  typeList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  typeChip: {
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  contractPreview: {
+    gap: 8,
+  },
+  contractPreviewImage: {
+    borderRadius: 14,
+    height: 160,
+    width: '100%',
+  },
+  pdfPreview: {
+    alignItems: 'center',
+    borderRadius: 14,
+    borderWidth: 1,
+    justifyContent: 'center',
+    minHeight: 96,
   },
 });

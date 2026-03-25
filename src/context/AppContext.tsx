@@ -5,6 +5,7 @@ import type {
   CreateWorkLogInput,
   Project,
   ThemeMode,
+  UpdateProjectInput,
   UpdateWorkLogInput,
   WorkLog,
 } from '@/types';
@@ -15,6 +16,8 @@ type AppContextValue = {
   projects: Project[];
   workLogs: WorkLog[];
   createProject: (input: CreateProjectInput) => Project | null;
+  updateProject: (id: string, updates: UpdateProjectInput) => void;
+  deleteProject: (id: string) => void;
   addWorkLog: (input: CreateWorkLogInput) => void;
   updateWorkLog: (id: string, updates: UpdateWorkLogInput) => void;
   deleteWorkLog: (id: string) => void;
@@ -40,10 +43,11 @@ export function AppProvider({ children }: PropsWithChildren) {
     },
     projects,
     workLogs,
-    createProject: ({ name, hourlyRate }) => {
+    createProject: ({ name, hourlyRate, contractType, startDate, contractFile }) => {
       const normalizedName = name.trim();
+      const normalizedStartDate = startDate.trim();
 
-      if (!normalizedName || hourlyRate <= 0) {
+      if (!normalizedName || hourlyRate <= 0 || !normalizedStartDate) {
         return null;
       }
 
@@ -51,11 +55,38 @@ export function AppProvider({ children }: PropsWithChildren) {
         id: createId('project'),
         name: normalizedName,
         hourlyRate: Number(hourlyRate.toFixed(2)),
+        contractType,
+        startDate: normalizedStartDate,
+        contractFile,
       };
 
       setProjects((currentProjects) => [...currentProjects, newProject]);
 
       return newProject;
+    },
+    updateProject: (id, updates) => {
+      setProjects((currentProjects) =>
+        currentProjects.map((project) => {
+          if (project.id !== id) {
+            return project;
+          }
+
+          return {
+            ...project,
+            ...updates,
+            hourlyRate:
+              typeof updates.hourlyRate === 'number'
+                ? Number(updates.hourlyRate.toFixed(2))
+                : project.hourlyRate,
+            startDate: updates.startDate?.trim() || project.startDate,
+            name: updates.name?.trim() || project.name,
+          };
+        }),
+      );
+    },
+    deleteProject: (id) => {
+      setProjects((currentProjects) => currentProjects.filter((project) => project.id !== id));
+      setWorkLogs((currentLogs) => currentLogs.filter((log) => log.projectId !== id));
     },
     addWorkLog: ({ date, hoursWorked, projectId }) => {
       if (!date || !projectId || hoursWorked <= 0) {
