@@ -4,6 +4,7 @@
     "slug": "count-hours-worked",
     "scheme": "counthoursworked",
     "version": "1.0.0",
+    "icon": "./src/assets/icons/icon.png",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -18,9 +19,9 @@
       "edgeToEdgeEnabled": true
     },
     "web": {
-      "bundler": "metro"
+      "bundler": "metro",
+      "favicon": "./src/assets/icons/icon.png"
     },
     "plugins": ["expo-router"]
   }
 }
-
