@@ -61,6 +61,8 @@ const lightTheme = {
     borderStrong: '#9FB3C8',
     danger: '#D64545',
     success: '#2F855A',
+    warning: '#D97706',
+    warningSoft: '#FFEDD5',
   },
   statusBarStyle: 'dark' as const,
 };
@@ -80,6 +82,8 @@ const darkTheme = {
     borderStrong: '#475569',
     danger: '#F87171',
     success: '#4ADE80',
+    warning: '#F59E0B',
+    warningSoft: '#3B2A10',
   },
   statusBarStyle: 'light' as const,
 };
@@ -92,4 +96,3 @@ export const themes = {
 export type AppTheme = (typeof themes)[ThemeMode];
 
 export const getTheme = (mode: ThemeMode): AppTheme => themes[mode];
-

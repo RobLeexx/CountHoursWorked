@@ -18,6 +18,8 @@ type AppContextValue = {
   toggleThemeMode: () => void;
   projects: Project[];
   workLogs: WorkLog[];
+  holidayDates: string[];
+  toggleHoliday: (date: string) => void;
   createProject: (input: CreateProjectInput) => Project | null;
   updateProject: (id: string, updates: UpdateProjectInput) => void;
   deleteProject: (id: string) => void;
@@ -32,20 +34,23 @@ const createId = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().to
 
 const initialProjects: Project[] = [];
 const initialWorkLogs: WorkLog[] = [];
+const initialHolidayDates: string[] = [];
 
 export function AppProvider({ children }: PropsWithChildren) {
   const [isHydrated, setIsHydrated] = useState(false);
   const [themeMode, setThemeMode] = useState<ThemeMode>('dark');
   const [projects, setProjects] = useState<Project[]>(initialProjects);
   const [workLogs, setWorkLogs] = useState<WorkLog[]>(initialWorkLogs);
+  const [holidayDates, setHolidayDates] = useState<string[]>(initialHolidayDates);
 
   useEffect(() => {
     const hydrate = async () => {
       try {
-        const [storedThemeMode, storedProjects, storedWorkLogs] = await Promise.all([
+        const [storedThemeMode, storedProjects, storedWorkLogs, storedHolidayDates] = await Promise.all([
           AsyncStorage.getItem(STORAGE_KEYS.themeMode),
           AsyncStorage.getItem(STORAGE_KEYS.projects),
           AsyncStorage.getItem(STORAGE_KEYS.workLogs),
+          AsyncStorage.getItem(STORAGE_KEYS.holidayDates),
         ]);
 
         if (storedThemeMode === 'light' || storedThemeMode === 'dark') {
@@ -58,6 +63,10 @@ export function AppProvider({ children }: PropsWithChildren) {
 
         if (storedWorkLogs) {
           setWorkLogs(JSON.parse(storedWorkLogs) as WorkLog[]);
+        }
+
+        if (storedHolidayDates) {
+          setHolidayDates(JSON.parse(storedHolidayDates) as string[]);
         }
       } catch (error) {
         console.warn('Failed to hydrate app storage.', error);
@@ -93,6 +102,14 @@ export function AppProvider({ children }: PropsWithChildren) {
     void AsyncStorage.setItem(STORAGE_KEYS.workLogs, JSON.stringify(workLogs));
   }, [isHydrated, workLogs]);
 
+  useEffect(() => {
+    if (!isHydrated) {
+      return;
+    }
+
+    void AsyncStorage.setItem(STORAGE_KEYS.holidayDates, JSON.stringify(holidayDates));
+  }, [holidayDates, isHydrated]);
+
   const value = useMemo<AppContextValue>(
     () => ({
       isHydrated,
@@ -102,6 +119,14 @@ export function AppProvider({ children }: PropsWithChildren) {
       },
       projects,
       workLogs,
+      holidayDates,
+      toggleHoliday: (date) => {
+        setHolidayDates((currentDates) =>
+          currentDates.includes(date)
+            ? currentDates.filter((currentDate) => currentDate !== date)
+            : [...currentDates, date],
+        );
+      },
       createProject: ({ name, hourlyRate, contractType, startDate, contractFile }) => {
         const normalizedName = name.trim();
         const normalizedStartDate = startDate.trim();
@@ -184,7 +209,7 @@ export function AppProvider({ children }: PropsWithChildren) {
         setWorkLogs((currentLogs) => currentLogs.filter((log) => log.id !== id));
       },
     }),
-    [isHydrated, projects, themeMode, workLogs],
+    [holidayDates, isHydrated, projects, themeMode, workLogs],
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

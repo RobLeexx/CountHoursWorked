@@ -8,4 +8,5 @@ export const STORAGE_KEYS = {
   themeMode: 'theme-mode',
   projects: 'projects',
   workLogs: 'work-logs',
+  holidayDates: 'holiday-dates',
 } as const;

@@ -124,7 +124,7 @@ function ContractFilePreview({ contractFile }: { contractFile?: ContractFile }) 
 
 export function HomeScreen() {
   const theme = useAppTheme();
-  const { isHydrated, themeMode, toggleThemeMode } = useAppContext();
+  const { holidayDates, isHydrated, themeMode, toggleThemeMode, toggleHoliday } = useAppContext();
   const { projects, createProject, updateProject, deleteProject } = useProjects();
   const today = useMemo(() => new Date(), []);
   const [selectedDate, setSelectedDate] = useState(toDateKey(today));
@@ -200,6 +200,7 @@ export function HomeScreen() {
         <WorkCalendar
           selectedDate={selectedDate}
           visibleMonth={visibleMonth}
+          holidayDates={holidayDates}
           workLogs={workLogs}
           onSelectDate={(dateKey) => {
             setSelectedDate(dateKey);
@@ -220,10 +221,12 @@ export function HomeScreen() {
           selectedDate={selectedDate}
           projects={projects}
           dayLogs={dayLogs}
+          isHoliday={holidayDates.includes(selectedDate)}
           selectedProjectId={selectedProjectId}
           onSelectProject={setSelectedProjectId}
           onSaveHours={setHoursForProject}
           onClearHours={clearHoursForProject}
+          onToggleHoliday={() => toggleHoliday(selectedDate)}
         />
 
         <ProjectsManager

@@ -10,6 +10,7 @@ import { AppText } from '../atoms/AppText';
 export type WorkCalendarProps = {
   selectedDate: string;
   visibleMonth: Date;
+  holidayDates: string[];
   workLogs: WorkLog[];
   onSelectDate: (dateKey: string) => void;
   onChangeMonth: (direction: 'previous' | 'next') => void;
@@ -18,6 +19,7 @@ export type WorkCalendarProps = {
 export function WorkCalendar({
   selectedDate,
   visibleMonth,
+  holidayDates,
   workLogs,
   onSelectDate,
   onChangeMonth,
@@ -25,6 +27,7 @@ export function WorkCalendar({
   const theme = useAppTheme();
   const monthDays = getCurrentMonthDays(visibleMonth);
   const loggedDates = new Set(workLogs.map((log) => log.date));
+  const holidayDateSet = new Set(holidayDates);
   const todayKey = toDateKey(new Date());
 
   return (
@@ -67,6 +70,7 @@ export function WorkCalendar({
         {monthDays.map((day) => {
           const isSelected = day.dateKey === selectedDate;
           const hasLogs = loggedDates.has(day.dateKey);
+          const isHoliday = holidayDateSet.has(day.dateKey);
           const showTodayRing = day.dateKey === todayKey && !isSelected;
 
           return (
@@ -76,15 +80,22 @@ export function WorkCalendar({
                 style={[
                   styles.dayCell,
                   {
-                    backgroundColor: isSelected ? theme.colors.primary : theme.colors.surfaceMuted,
+                    backgroundColor: isHoliday
+                      ? isSelected
+                        ? theme.colors.warning
+                        : theme.colors.warningSoft
+                      : isSelected
+                        ? theme.colors.primary
+                        : theme.colors.surfaceMuted,
                     borderColor: showTodayRing ? theme.colors.primary : 'transparent',
                     opacity: day.isCurrentMonth ? 1 : 0.45,
                   },
                 ]}
               >
                 <AppText
-                  color={isSelected ? 'inverse' : 'text'}
+                  color={isSelected || isHoliday ? 'inverse' : 'text'}
                   weight={isSelected || day.isToday ? 'semibold' : 'regular'}
+                  style={!isSelected && isHoliday ? { color: theme.colors.warning } : undefined}
                 >
                   {day.dayNumber}
                 </AppText>
@@ -94,7 +105,7 @@ export function WorkCalendar({
                     styles.marker,
                     {
                       backgroundColor: hasLogs
-                        ? isSelected
+                        ? isSelected || isHoliday
                           ? theme.colors.inverse
                           : theme.colors.primary
                         : 'transparent',

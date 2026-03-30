@@ -19,10 +19,12 @@ export type DayDetailsProps = {
   selectedDate: string;
   projects: Project[];
   dayLogs: WorkLog[];
+  isHoliday: boolean;
   selectedProjectId: string;
   onSelectProject: (projectId: string) => void;
   onSaveHours: (projectId: string, hoursWorked: number) => void;
   onClearHours: (projectId: string) => void;
+  onToggleHoliday: () => void;
 };
 
 function ProjectChips({ projects, selectedProjectId, onSelect }: ProjectChipsProps) {
@@ -62,10 +64,12 @@ export function DayDetails({
   selectedDate,
   projects,
   dayLogs,
+  isHoliday,
   selectedProjectId,
   onSelectProject,
   onSaveHours,
   onClearHours,
+  onToggleHoliday,
 }: DayDetailsProps) {
   const theme = useAppTheme();
   const selectedProject = useMemo(
@@ -123,7 +127,29 @@ export function DayDetails({
         <AppText color="muted">Create a project from the top-right plus icon to start logging hours.</AppText>
       ) : (
         <>
-          <ProjectChips projects={projects} selectedProjectId={selectedProjectId} onSelect={onSelectProject} />
+          <View style={styles.selectionRow}>
+            <ProjectChips projects={projects} selectedProjectId={selectedProjectId} onSelect={onSelectProject} />
+
+            <Pressable
+              onPress={onToggleHoliday}
+              style={[
+                styles.holidayButton,
+                {
+                  backgroundColor: isHoliday ? theme.colors.warning : theme.colors.warningSoft,
+                  borderColor: theme.colors.warning,
+                },
+              ]}
+            >
+              <AppText
+                style={{
+                  color: isHoliday ? theme.colors.inverse : theme.colors.warning,
+                }}
+                weight="semibold"
+              >
+                Día Festivo
+              </AppText>
+            </Pressable>
+          </View>
 
           <View style={styles.inputBlock}>
             <AppText variant="bodySmall" color="muted">
@@ -178,14 +204,22 @@ const styles = StyleSheet.create({
   projectList: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    flex: 1,
     gap: 8,
   },
   projectChip: {
+    flex: 1,
     borderRadius: 14,
     borderWidth: 1,
     gap: 2,
+    minWidth: 140,
     paddingHorizontal: 12,
     paddingVertical: 10,
+  },
+  selectionRow: {
+    alignItems: 'stretch',
+    flexDirection: 'row',
+    gap: 8,
   },
   inputBlock: {
     gap: 6,
@@ -196,5 +230,15 @@ const styles = StyleSheet.create({
   buttonRow: {
     flexDirection: 'row',
     gap: 10,
+  },
+  holidayButton: {
+    alignItems: 'center',
+    borderRadius: 14,
+    borderWidth: 1,
+    flex: 1,
+    justifyContent: 'center',
+    minHeight: 58,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
   },
 });
