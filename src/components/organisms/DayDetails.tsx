@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
+import { useAppContext } from '@/context';
 import type { Project, WorkLog } from '@/types';
 import { useAppTheme } from '@/theme';
 import { calculateDailyEarnings, formatCurrency, formatLongDate, parseDecimalInput } from '@/utils';
@@ -28,6 +29,7 @@ export type DayDetailsProps = {
 };
 
 function ProjectChips({ projects, selectedProjectId, onSelect }: ProjectChipsProps) {
+  const { locale } = useAppContext();
   const theme = useAppTheme();
 
   return (
@@ -51,7 +53,7 @@ function ProjectChips({ projects, selectedProjectId, onSelect }: ProjectChipsPro
               {project.name}
             </AppText>
             <AppText color={isSelected ? 'inverse' : 'muted'} variant="bodySmall">
-              {formatCurrency(project.hourlyRate)}/h
+              {formatCurrency(project.hourlyRate, locale, project.currency)}/h
             </AppText>
           </Pressable>
         );
@@ -71,6 +73,7 @@ export function DayDetails({
   onClearHours,
   onToggleHoliday,
 }: DayDetailsProps) {
+  const { locale, t } = useAppContext();
   const theme = useAppTheme();
   const selectedProject = useMemo(
     () => projects.find((project) => project.id === selectedProjectId),
@@ -96,6 +99,7 @@ export function DayDetails({
   const canSave = Boolean(selectedProjectId) && parsedHours !== null && parsedHours >= 0;
   const currentEarnings =
     currentLog && selectedProject ? calculateDailyEarnings(currentLog, selectedProject) : 0;
+
   const commitHours = () => {
     if (!canSave || parsedHours === null) {
       return;
@@ -120,11 +124,11 @@ export function DayDetails({
       ]}
     >
       <AppText variant="title" weight="bold">
-        {formatLongDate(selectedDate)}
+        {formatLongDate(selectedDate, locale)}
       </AppText>
 
       {projects.length === 0 ? (
-        <AppText color="muted">Create a project from the top-right plus icon to start logging hours.</AppText>
+        <AppText color="muted">{t('day.noProjects')}</AppText>
       ) : (
         <>
           <View style={styles.selectionRow}>
@@ -146,14 +150,14 @@ export function DayDetails({
                 }}
                 weight="semibold"
               >
-                Día Festivo
+                {t('day.holiday')}
               </AppText>
             </Pressable>
           </View>
 
           <View style={styles.inputBlock}>
             <AppText variant="bodySmall" color="muted">
-              Hours Today
+              {t('day.hoursToday')}
             </AppText>
             <AppInput
               keyboardType="decimal-pad"
@@ -167,21 +171,18 @@ export function DayDetails({
           <View style={styles.inlineMeta}>
             <AppText color="muted">
               {selectedProject
-                ? `Rate: ${formatCurrency(selectedProject.hourlyRate)}/h`
-                : 'Select a project to edit the day.'}
+                ? t('day.rate', { value: formatCurrency(selectedProject.hourlyRate, locale, selectedProject.currency) })
+                : t('day.selectProject')}
             </AppText>
-            <AppText color="muted">Earned: {formatCurrency(currentEarnings)}</AppText>
+            <AppText color="muted">
+              {t('day.earned', { value: formatCurrency(currentEarnings, locale, selectedProject?.currency ?? 'EUR') })}
+            </AppText>
           </View>
 
           <View style={styles.buttonRow}>
+            <AppButton title={t('day.saveHours')} onPress={commitHours} disabled={!canSave} fullWidth={false} />
             <AppButton
-              title="Save hours"
-              onPress={commitHours}
-              disabled={!canSave}
-              fullWidth={false}
-            />
-            <AppButton
-              title="Clear"
+              title={t('common.clear')}
               onPress={() => onClearHours(selectedProjectId)}
               variant="secondary"
               fullWidth={false}
@@ -202,9 +203,9 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   projectList: {
+    flex: 1,
     flexDirection: 'row',
     flexWrap: 'wrap',
-    flex: 1,
     gap: 8,
   },
   projectChip: {
@@ -233,9 +234,9 @@ const styles = StyleSheet.create({
   },
   holidayButton: {
     alignItems: 'center',
+    flex: 1,
     borderRadius: 14,
     borderWidth: 1,
-    flex: 1,
     justifyContent: 'center',
     minHeight: 58,
     paddingHorizontal: 14,

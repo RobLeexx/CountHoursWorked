@@ -1,6 +1,8 @@
-import type { WorkLog } from '@/types';
-
-export const WEEKDAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
+import type { AppLanguage, WeekStart, WorkLog } from '@/types';
+const WEEKDAY_LABELS = {
+  en: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+  es: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'],
+} as const;
 
 export type CalendarDay = {
   date: Date;
@@ -33,11 +35,17 @@ export function addMonths(date: Date, amount: number) {
   return new Date(date.getFullYear(), date.getMonth() + amount, 1);
 }
 
-export function getCurrentMonthDays(baseDate = new Date()) {
+export function getWeekdayLabels(language: AppLanguage, weekStart: WeekStart) {
+  const labels = WEEKDAY_LABELS[language];
+
+  return weekStart === 'monday' ? labels : [labels[6], ...labels.slice(0, 6)];
+}
+
+export function getCurrentMonthDays(baseDate = new Date(), weekStart: WeekStart = 'monday') {
   const monthStart = new Date(baseDate.getFullYear(), baseDate.getMonth(), 1);
   const monthIndex = monthStart.getMonth();
   const year = monthStart.getFullYear();
-  const startOffset = (monthStart.getDay() + 6) % 7;
+  const startOffset = weekStart === 'monday' ? (monthStart.getDay() + 6) % 7 : monthStart.getDay();
   const gridStart = addDays(monthStart, -startOffset);
   const todayKey = toDateKey(new Date());
 
@@ -55,11 +63,11 @@ export function getCurrentMonthDays(baseDate = new Date()) {
   });
 }
 
-export function getWeekRange(dateInput: Date | string) {
+export function getWeekRange(dateInput: Date | string, weekStart: WeekStart = 'monday') {
   const targetDate = typeof dateInput === 'string' ? fromDateKey(dateInput) : dateInput;
   const weekday = targetDate.getDay();
-  const mondayOffset = weekday === 0 ? -6 : 1 - weekday;
-  const start = addDays(targetDate, mondayOffset);
+  const startOffset = weekStart === 'monday' ? (weekday === 0 ? -6 : 1 - weekday) : -weekday;
+  const start = addDays(targetDate, startOffset);
   const end = addDays(start, 6);
 
   return { start, end };
@@ -85,8 +93,8 @@ export function getLogsForMonth(workLogs: WorkLog[], dateInput: Date | string) {
   });
 }
 
-export function getLogsForWeek(workLogs: WorkLog[], dateInput: Date | string) {
-  const { start, end } = getWeekRange(dateInput);
+export function getLogsForWeek(workLogs: WorkLog[], dateInput: Date | string, weekStart: WeekStart = 'monday') {
+  const { start, end } = getWeekRange(dateInput, weekStart);
   return workLogs.filter((log) => isDateInRange(log.date, start, end));
 }
 

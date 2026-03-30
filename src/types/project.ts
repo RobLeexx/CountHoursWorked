@@ -1,3 +1,5 @@
+import type { CurrencyCode } from './app';
+
 export type ContractType = 'hourly' | 'temporary' | 'part-time' | 'full-time' | 'freelance';
 
 export type ContractFile = {
@@ -10,6 +12,7 @@ export type Project = {
   id: string;
   name: string;
   hourlyRate: number;
+  currency: CurrencyCode;
   contractType: ContractType;
   startDate: string;
   contractFile?: ContractFile;
@@ -18,6 +21,7 @@ export type Project = {
 export type CreateProjectInput = {
   name: string;
   hourlyRate: number;
+  currency: CurrencyCode;
   contractType: ContractType;
   startDate: string;
   contractFile?: ContractFile;

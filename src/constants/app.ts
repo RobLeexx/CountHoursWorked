@@ -6,6 +6,8 @@ export const APP_CONFIG = {
 
 export const STORAGE_KEYS = {
   themeMode: 'theme-mode',
+  language: 'language',
+  weekStart: 'week-start',
   projects: 'projects',
   workLogs: 'work-logs',
   holidayDates: 'holiday-dates',

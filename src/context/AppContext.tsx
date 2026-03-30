@@ -1,21 +1,33 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, useContext, useEffect, useMemo, useState, type PropsWithChildren } from 'react';
 
+import { translate } from '@/i18n';
 import { STORAGE_KEYS } from '@/constants';
 import type {
+  AppLanguage,
   CreateProjectInput,
   CreateWorkLogInput,
   Project,
   ThemeMode,
   UpdateProjectInput,
   UpdateWorkLogInput,
+  WeekStart,
   WorkLog,
 } from '@/types';
 
 type AppContextValue = {
   isHydrated: boolean;
+  isHeaderCompact: boolean;
+  setHeaderCompact: (value: boolean) => void;
   themeMode: ThemeMode;
+  setThemeMode: (value: ThemeMode) => void;
   toggleThemeMode: () => void;
+  language: AppLanguage;
+  setLanguage: (value: AppLanguage) => void;
+  weekStart: WeekStart;
+  setWeekStart: (value: WeekStart) => void;
+  locale: string;
+  t: (key: string, params?: Record<string, string | number>) => string;
   projects: Project[];
   workLogs: WorkLog[];
   holidayDates: string[];
@@ -26,6 +38,7 @@ type AppContextValue = {
   addWorkLog: (input: CreateWorkLogInput) => void;
   updateWorkLog: (id: string, updates: UpdateWorkLogInput) => void;
   deleteWorkLog: (id: string) => void;
+  resetData: () => void;
 };
 
 const AppContext = createContext<AppContextValue | undefined>(undefined);
@@ -35,10 +48,26 @@ const createId = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().to
 const initialProjects: Project[] = [];
 const initialWorkLogs: WorkLog[] = [];
 const initialHolidayDates: string[] = [];
+const DEFAULT_PROJECT_CURRENCY = 'EUR';
+
+function normalizeProject(project: Partial<Project>): Project {
+  return {
+    id: project.id ?? createId('project'),
+    name: project.name?.trim() ?? '',
+    hourlyRate: Number(project.hourlyRate ?? 0),
+    currency: project.currency === 'USD' ? 'USD' : DEFAULT_PROJECT_CURRENCY,
+    contractType: project.contractType ?? 'hourly',
+    startDate: project.startDate?.trim() ?? '',
+    contractFile: project.contractFile,
+  };
+}
 
 export function AppProvider({ children }: PropsWithChildren) {
   const [isHydrated, setIsHydrated] = useState(false);
+  const [isHeaderCompact, setHeaderCompact] = useState(false);
   const [themeMode, setThemeMode] = useState<ThemeMode>('dark');
+  const [language, setLanguage] = useState<AppLanguage>('en');
+  const [weekStart, setWeekStart] = useState<WeekStart>('monday');
   const [projects, setProjects] = useState<Project[]>(initialProjects);
   const [workLogs, setWorkLogs] = useState<WorkLog[]>(initialWorkLogs);
   const [holidayDates, setHolidayDates] = useState<string[]>(initialHolidayDates);
@@ -46,8 +75,17 @@ export function AppProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     const hydrate = async () => {
       try {
-        const [storedThemeMode, storedProjects, storedWorkLogs, storedHolidayDates] = await Promise.all([
+        const [
+          storedThemeMode,
+          storedLanguage,
+          storedWeekStart,
+          storedProjects,
+          storedWorkLogs,
+          storedHolidayDates,
+        ] = await Promise.all([
           AsyncStorage.getItem(STORAGE_KEYS.themeMode),
+          AsyncStorage.getItem(STORAGE_KEYS.language),
+          AsyncStorage.getItem(STORAGE_KEYS.weekStart),
           AsyncStorage.getItem(STORAGE_KEYS.projects),
           AsyncStorage.getItem(STORAGE_KEYS.workLogs),
           AsyncStorage.getItem(STORAGE_KEYS.holidayDates),
@@ -57,8 +95,16 @@ export function AppProvider({ children }: PropsWithChildren) {
           setThemeMode(storedThemeMode);
         }
 
+        if (storedLanguage === 'en' || storedLanguage === 'es') {
+          setLanguage(storedLanguage);
+        }
+
+        if (storedWeekStart === 'monday' || storedWeekStart === 'sunday') {
+          setWeekStart(storedWeekStart);
+        }
+
         if (storedProjects) {
-          setProjects(JSON.parse(storedProjects) as Project[]);
+          setProjects((JSON.parse(storedProjects) as Partial<Project>[]).map(normalizeProject));
         }
 
         if (storedWorkLogs) {
@@ -91,6 +137,22 @@ export function AppProvider({ children }: PropsWithChildren) {
       return;
     }
 
+    void AsyncStorage.setItem(STORAGE_KEYS.language, language);
+  }, [isHydrated, language]);
+
+  useEffect(() => {
+    if (!isHydrated) {
+      return;
+    }
+
+    void AsyncStorage.setItem(STORAGE_KEYS.weekStart, weekStart);
+  }, [isHydrated, weekStart]);
+
+  useEffect(() => {
+    if (!isHydrated) {
+      return;
+    }
+
     void AsyncStorage.setItem(STORAGE_KEYS.projects, JSON.stringify(projects));
   }, [isHydrated, projects]);
 
@@ -110,13 +172,24 @@ export function AppProvider({ children }: PropsWithChildren) {
     void AsyncStorage.setItem(STORAGE_KEYS.holidayDates, JSON.stringify(holidayDates));
   }, [holidayDates, isHydrated]);
 
+  const locale = language === 'es' ? 'es-ES' : 'en-IE';
+
   const value = useMemo<AppContextValue>(
     () => ({
       isHydrated,
+      isHeaderCompact,
+      setHeaderCompact,
       themeMode,
+      setThemeMode,
       toggleThemeMode: () => {
         setThemeMode((currentMode) => (currentMode === 'light' ? 'dark' : 'light'));
       },
+      language,
+      setLanguage,
+      weekStart,
+      setWeekStart,
+      locale,
+      t: (key, params) => translate(language, key, params),
       projects,
       workLogs,
       holidayDates,
@@ -127,7 +200,7 @@ export function AppProvider({ children }: PropsWithChildren) {
             : [...currentDates, date],
         );
       },
-      createProject: ({ name, hourlyRate, contractType, startDate, contractFile }) => {
+      createProject: ({ name, hourlyRate, currency, contractType, startDate, contractFile }) => {
         const normalizedName = name.trim();
         const normalizedStartDate = startDate.trim();
 
@@ -139,6 +212,7 @@ export function AppProvider({ children }: PropsWithChildren) {
           id: createId('project'),
           name: normalizedName,
           hourlyRate: Number(hourlyRate.toFixed(2)),
+          currency,
           contractType,
           startDate: normalizedStartDate,
           contractFile,
@@ -162,6 +236,7 @@ export function AppProvider({ children }: PropsWithChildren) {
                 typeof updates.hourlyRate === 'number'
                   ? Number(updates.hourlyRate.toFixed(2))
                   : project.hourlyRate,
+              currency: updates.currency ?? project.currency,
               startDate: updates.startDate?.trim() || project.startDate,
               name: updates.name?.trim() || project.name,
             };
@@ -208,8 +283,13 @@ export function AppProvider({ children }: PropsWithChildren) {
       deleteWorkLog: (id) => {
         setWorkLogs((currentLogs) => currentLogs.filter((log) => log.id !== id));
       },
+      resetData: () => {
+        setProjects([]);
+        setWorkLogs([]);
+        setHolidayDates([]);
+      },
     }),
-    [holidayDates, isHydrated, projects, themeMode, workLogs],
+    [holidayDates, isHeaderCompact, isHydrated, language, locale, projects, themeMode, weekStart, workLogs],
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

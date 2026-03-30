@@ -2,9 +2,10 @@ import { useMemo, useState } from 'react';
 import { Image, Linking, Modal, Pressable, StyleSheet, View } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 
-import type { ContractFile, ContractType, CreateProjectInput, Project, UpdateProjectInput } from '@/types';
+import { useAppContext } from '@/context';
+import type { ContractFile, ContractType, CreateProjectInput, CurrencyCode, Project, UpdateProjectInput } from '@/types';
 import { useAppTheme } from '@/theme';
-import { formatCurrency, parseDecimalInput, toDateKey } from '@/utils';
+import { formatCurrency, formatDate, fromDateKey, parseDecimalInput, toDateKey } from '@/utils';
 
 import { AppButton } from '../atoms/AppButton';
 import { AppInput } from '../atoms/AppInput';
@@ -12,6 +13,7 @@ import { AppText } from '../atoms/AppText';
 import { DateField } from '../molecules/DateField';
 
 const CONTRACT_TYPES: ContractType[] = ['hourly', 'temporary', 'part-time', 'full-time', 'freelance'];
+const CURRENCIES: CurrencyCode[] = ['EUR', 'USD'];
 
 type ContractTypeSelectorProps = {
   value: ContractType;
@@ -21,6 +23,7 @@ type ContractTypeSelectorProps = {
 type ProjectFormValues = {
   name: string;
   hourlyRate: string;
+  currency: CurrencyCode;
   contractType: ContractType;
   startDate: string;
   contractFile?: ContractFile;
@@ -42,6 +45,7 @@ export type ProjectsManagerProps = {
 };
 
 function ContractTypeSelector({ value, onChange }: ContractTypeSelectorProps) {
+  const { t } = useAppContext();
   const theme = useAppTheme();
 
   return (
@@ -62,7 +66,7 @@ function ContractTypeSelector({ value, onChange }: ContractTypeSelectorProps) {
             ]}
           >
             <AppText color={isSelected ? 'inverse' : 'text'} variant="bodySmall" weight="semibold">
-              {type}
+              {t(`projects.${type}`)}
             </AppText>
           </Pressable>
         );
@@ -72,12 +76,13 @@ function ContractTypeSelector({ value, onChange }: ContractTypeSelectorProps) {
 }
 
 function ContractPreview({ contractFile }: { contractFile?: ContractFile }) {
+  const { t } = useAppContext();
   const theme = useAppTheme();
 
   if (!contractFile) {
     return (
       <AppText color="muted" variant="bodySmall">
-        No contract uploaded.
+        {t('projects.noContract')}
       </AppText>
     );
   }
@@ -103,11 +108,11 @@ function ContractPreview({ contractFile }: { contractFile?: ContractFile }) {
             },
           ]}
         >
-          <AppText color="muted">PDF attached</AppText>
+          <AppText color="muted">{t('projects.pdfAttached')}</AppText>
         </View>
       ) : null}
       <AppButton
-        title={isPdf ? 'Open PDF' : 'Open file'}
+        title={isPdf ? t('projects.openPdf') : t('projects.openFile')}
         onPress={() => {
           void Linking.openURL(contractFile.uri);
         }}
@@ -139,9 +144,11 @@ async function pickContractFile() {
 }
 
 function ProjectForm({ title, submitLabel, initialValues, onSubmit, onCancel }: ProjectFormProps) {
+  const { locale, t } = useAppContext();
   const theme = useAppTheme();
   const [name, setName] = useState(initialValues.name);
   const [hourlyRate, setHourlyRate] = useState(initialValues.hourlyRate);
+  const [currency, setCurrency] = useState<CurrencyCode>(initialValues.currency);
   const [contractType, setContractType] = useState<ContractType>(initialValues.contractType);
   const [startDate, setStartDate] = useState(initialValues.startDate);
   const [contractFile, setContractFile] = useState<ContractFile | undefined>(initialValues.contractFile);
@@ -163,28 +170,61 @@ function ProjectForm({ title, submitLabel, initialValues, onSubmit, onCancel }: 
         {title}
       </AppText>
 
-      <AppInput onChangeText={setName} placeholder="Project name" value={name} />
+      <AppInput onChangeText={setName} placeholder={t('projects.projectName')} value={name} />
       <AppInput
         keyboardType="decimal-pad"
         onChangeText={setHourlyRate}
-        placeholder="Hourly rate in EUR"
+        placeholder={t('projects.hourlyRatePlaceholder', { currency })}
         value={hourlyRate}
       />
-      <DateField label="Start date" onChange={setStartDate} value={startDate} />
+      {parsedRate ? (
+        <AppText color="muted" variant="bodySmall">
+          {t('projects.ratePreview', { value: formatCurrency(parsedRate, locale, currency) })}
+        </AppText>
+      ) : null}
+      <View style={styles.fieldBlock}>
+        <AppText variant="bodySmall" color="muted">
+          {t('projects.currency')}
+        </AppText>
+        <View style={styles.typeList}>
+          {CURRENCIES.map((option) => {
+            const isSelected = option === currency;
+
+            return (
+              <Pressable
+                key={option}
+                onPress={() => setCurrency(option)}
+                style={[
+                  styles.typeChip,
+                  {
+                    backgroundColor: isSelected ? theme.colors.primary : theme.colors.surfaceMuted,
+                    borderColor: isSelected ? theme.colors.primary : theme.colors.border,
+                  },
+                ]}
+              >
+                <AppText color={isSelected ? 'inverse' : 'text'} variant="bodySmall" weight="semibold">
+                  {option}
+                </AppText>
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
+      <DateField label={t('projects.startDate')} onChange={setStartDate} value={startDate} />
 
       <View style={styles.fieldBlock}>
         <AppText variant="bodySmall" color="muted">
-          Contract type
+          {t('projects.contractType')}
         </AppText>
         <ContractTypeSelector value={contractType} onChange={setContractType} />
       </View>
 
       <View style={styles.fieldBlock}>
         <AppText variant="bodySmall" color="muted">
-          Contract file
+          {t('projects.contractFile')}
         </AppText>
         <AppButton
-          title={contractFile ? 'Replace file' : 'Upload contract'}
+          title={contractFile ? t('projects.replaceFile') : t('projects.uploadContract')}
           onPress={async () => {
             const file = await pickContractFile();
 
@@ -199,9 +239,7 @@ function ProjectForm({ title, submitLabel, initialValues, onSubmit, onCancel }: 
       </View>
 
       <View style={styles.formActions}>
-        {onCancel ? (
-          <AppButton title="Cancel" onPress={onCancel} variant="secondary" fullWidth={false} />
-        ) : null}
+        {onCancel ? <AppButton title={t('common.cancel')} onPress={onCancel} variant="secondary" fullWidth={false} /> : null}
         <AppButton
           title={submitLabel}
           onPress={() => {
@@ -209,6 +247,7 @@ function ProjectForm({ title, submitLabel, initialValues, onSubmit, onCancel }: 
               onSubmit({
                 name,
                 hourlyRate: parsedRate,
+                currency,
                 contractType,
                 startDate,
                 contractFile,
@@ -229,6 +268,7 @@ export function ProjectsManager({
   onUpdateProject,
   onDeleteProject,
 }: ProjectsManagerProps) {
+  const { locale, t } = useAppContext();
   const theme = useAppTheme();
   const [isOpen, setIsOpen] = useState(false);
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
@@ -241,7 +281,7 @@ export function ProjectsManager({
   return (
     <View style={styles.wrapper}>
       <AppButton
-        title={isOpen ? 'Hide Projects' : 'Manage Projects'}
+        title={isOpen ? t('projects.hide') : t('projects.manage')}
         onPress={() => setIsOpen((currentValue) => !currentValue)}
         variant="secondary"
         fullWidth={false}
@@ -258,15 +298,16 @@ export function ProjectsManager({
           ]}
         >
           <AppText variant="title" weight="bold">
-            Projects
+            {t('projects.title')}
           </AppText>
 
           <ProjectForm
-            title="Create project"
-            submitLabel="Save project"
+            title={t('projects.createTitle')}
+            submitLabel={t('projects.saveProject')}
             initialValues={{
               name: '',
               hourlyRate: '',
+              currency: 'EUR',
               contractType: 'hourly',
               startDate: toDateKey(new Date()),
             }}
@@ -280,7 +321,7 @@ export function ProjectsManager({
           />
 
           {projects.length === 0 ? (
-            <AppText color="muted">No projects yet.</AppText>
+            <AppText color="muted">{t('projects.noProjects')}</AppText>
           ) : (
             projects.map((project) => {
               const isEditing = project.id === editingProjectId;
@@ -300,18 +341,20 @@ export function ProjectsManager({
                     <View style={styles.projectMeta}>
                       <AppText weight="bold">{project.name}</AppText>
                       <AppText color="muted" variant="bodySmall">
-                        {formatCurrency(project.hourlyRate)}/h · {project.contractType} · Started {project.startDate}
+                        {formatCurrency(project.hourlyRate, locale, project.currency)}/h | {project.currency} | {t(`projects.${project.contractType}`)} | {t('projects.started', {
+                          date: formatDate(fromDateKey(project.startDate), locale),
+                        })}
                       </AppText>
                     </View>
                     <View style={styles.projectButtons}>
                       <AppButton
-                        title={isEditing ? 'Close' : 'Edit'}
+                        title={isEditing ? t('common.close') : t('common.edit')}
                         onPress={() => setEditingProjectId(isEditing ? null : project.id)}
                         variant="secondary"
                         fullWidth={false}
                       />
                       <AppButton
-                        title="Delete"
+                        title={t('common.delete')}
                         onPress={() => setProjectPendingDelete(project)}
                         variant="ghost"
                         fullWidth={false}
@@ -324,11 +367,12 @@ export function ProjectsManager({
                   {isEditing && editingProject ? (
                     <ProjectForm
                       key={editingProject.id}
-                      title="Edit project"
-                      submitLabel="Update project"
+                      title={t('projects.editTitle')}
+                      submitLabel={t('projects.updateProject')}
                       initialValues={{
                         name: editingProject.name,
                         hourlyRate: String(editingProject.hourlyRate),
+                        currency: editingProject.currency,
                         contractType: editingProject.contractType,
                         startDate: editingProject.startDate,
                         contractFile: editingProject.contractFile,
@@ -364,22 +408,22 @@ export function ProjectsManager({
             ]}
           >
             <AppText variant="title" weight="bold">
-              Delete project?
+              {t('projects.deleteTitle')}
             </AppText>
             <AppText color="muted">
               {projectPendingDelete
-                ? `This will remove "${projectPendingDelete.name}" and all of its logged hours.`
-                : 'This action cannot be undone.'}
+                ? t('projects.deleteBody', { name: projectPendingDelete.name })
+                : t('projects.deleteFallback')}
             </AppText>
             <View style={styles.modalActions}>
               <AppButton
-                title="Cancel"
+                title={t('common.cancel')}
                 onPress={() => setProjectPendingDelete(null)}
                 variant="secondary"
                 fullWidth={false}
               />
               <AppButton
-                title="Delete"
+                title={t('common.delete')}
                 onPress={() => {
                   if (projectPendingDelete) {
                     if (editingProjectId === projectPendingDelete.id) {

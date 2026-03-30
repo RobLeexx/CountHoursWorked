@@ -7,10 +7,17 @@ export function formatDate(date: Date, locale = 'en-GB') {
 }
 
 export function formatCurrency(value: number, locale = 'en-IE', currency = 'EUR') {
-  return new Intl.NumberFormat(locale, {
+  const formattedValue = new Intl.NumberFormat(locale, {
     style: 'currency',
     currency,
+    currencyDisplay: 'narrowSymbol',
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(value);
+
+  if (currency === 'USD') {
+    return formattedValue.replace(/US\$/g, '$');
+  }
+
+  return formattedValue;
 }

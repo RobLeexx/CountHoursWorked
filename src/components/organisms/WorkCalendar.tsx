@@ -1,8 +1,9 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
+import { useAppContext } from '@/context';
 import type { WorkLog } from '@/types';
 import { useAppTheme } from '@/theme';
-import { WEEKDAY_LABELS, formatMonthLabel, getCurrentMonthDays, toDateKey } from '@/utils';
+import { formatMonthLabel, getCurrentMonthDays, getWeekdayLabels, toDateKey } from '@/utils';
 
 import { AppIconButton } from '../atoms/AppIconButton';
 import { AppText } from '../atoms/AppText';
@@ -24,8 +25,10 @@ export function WorkCalendar({
   onSelectDate,
   onChangeMonth,
 }: WorkCalendarProps) {
+  const { language, locale, t, weekStart } = useAppContext();
   const theme = useAppTheme();
-  const monthDays = getCurrentMonthDays(visibleMonth);
+  const monthDays = getCurrentMonthDays(visibleMonth, weekStart);
+  const weekdayLabels = getWeekdayLabels(language, weekStart);
   const loggedDates = new Set(workLogs.map((log) => log.date));
   const holidayDateSet = new Set(holidayDates);
   const todayKey = toDateKey(new Date());
@@ -42,22 +45,22 @@ export function WorkCalendar({
     >
       <View style={styles.monthRow}>
         <AppIconButton
-          accessibilityLabel="Previous month"
+          accessibilityLabel={t('calendar.previousMonth')}
           icon="chevron-back"
           onPress={() => onChangeMonth('previous')}
         />
         <AppText variant="title" weight="bold">
-          {formatMonthLabel(visibleMonth)}
+          {formatMonthLabel(visibleMonth, locale)}
         </AppText>
         <AppIconButton
-          accessibilityLabel="Next month"
+          accessibilityLabel={t('calendar.nextMonth')}
           icon="chevron-forward"
           onPress={() => onChangeMonth('next')}
         />
       </View>
 
       <View style={styles.weekdayRow}>
-        {WEEKDAY_LABELS.map((label) => (
+        {weekdayLabels.map((label) => (
           <View key={label} style={styles.weekdayWrapper}>
             <AppText variant="bodySmall" color="muted" align="center" style={styles.weekdayCell}>
               {label}

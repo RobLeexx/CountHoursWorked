@@ -2,6 +2,7 @@ import { useState } from 'react';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { Pressable, StyleSheet, View } from 'react-native';
 
+import { useAppContext } from '@/context';
 import { useAppTheme } from '@/theme';
 import { formatDate, fromDateKey, toDateKey } from '@/utils';
 
@@ -14,6 +15,7 @@ export type DateFieldProps = {
 };
 
 export function DateField({ label, value, onChange }: DateFieldProps) {
+  const { locale } = useAppContext();
   const theme = useAppTheme();
   const [showPicker, setShowPicker] = useState(false);
   const selectedDate = value ? fromDateKey(value) : new Date();
@@ -43,7 +45,7 @@ export function DateField({ label, value, onChange }: DateFieldProps) {
           },
         ]}
       >
-        <AppText>{formatDate(selectedDate)}</AppText>
+        <AppText>{formatDate(selectedDate, locale)}</AppText>
       </Pressable>
 
       {showPicker ? <DateTimePicker mode="date" value={selectedDate} onChange={handleChange} /> : null}

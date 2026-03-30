@@ -1,5 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 
+import { useAppContext } from '@/context';
+import type { CurrencyTotals } from '@/utils';
 import { useAppTheme } from '@/theme';
 import { formatCurrency } from '@/utils';
 
@@ -12,10 +14,20 @@ type SummaryItemProps = {
 
 export type SummaryProps = {
   dailyHours: number;
-  dailyEarnings: number;
-  weeklyEarnings: number;
-  monthlyEarnings: number;
+  dailyEarnings: CurrencyTotals;
+  weeklyEarnings: CurrencyTotals;
+  monthlyEarnings: CurrencyTotals;
 };
+
+function formatTotals(value: CurrencyTotals, locale: string) {
+  const entries = Object.entries(value).filter(([, total]) => typeof total === 'number' && total > 0);
+
+  if (entries.length === 0) {
+    return '0.00';
+  }
+
+  return entries.map(([currency, total]) => formatCurrency(total ?? 0, locale, currency as 'EUR' | 'USD')).join('\n');
+}
 
 function SummaryItem({ label, value }: SummaryItemProps) {
   const theme = useAppTheme();
@@ -46,12 +58,14 @@ export function Summary({
   weeklyEarnings,
   monthlyEarnings,
 }: SummaryProps) {
+  const { locale, t } = useAppContext();
+
   return (
     <View style={styles.grid}>
-      <SummaryItem label="Hours today" value={dailyHours.toFixed(2)} />
-      <SummaryItem label="Today earnings" value={formatCurrency(dailyEarnings)} />
-      <SummaryItem label="Week earnings" value={formatCurrency(weeklyEarnings)} />
-      <SummaryItem label="Month earnings" value={formatCurrency(monthlyEarnings)} />
+      <SummaryItem label={t('summary.hoursToday')} value={dailyHours.toFixed(2)} />
+      <SummaryItem label={t('summary.todayEarnings')} value={formatTotals(dailyEarnings, locale)} />
+      <SummaryItem label={t('summary.weekEarnings')} value={formatTotals(weeklyEarnings, locale)} />
+      <SummaryItem label={t('summary.monthEarnings')} value={formatTotals(monthlyEarnings, locale)} />
     </View>
   );
 }
@@ -70,4 +84,3 @@ const styles = StyleSheet.create({
     padding: 16,
   },
 });
-

@@ -1,9 +1,7 @@
 import { useAppContext } from '@/context';
 import {
-  calculateDailyEarnings,
+  calculateCurrencyTotals,
   calculateHoursTotal,
-  calculateMonthlyTotal,
-  calculateWeeklyTotal,
   getLogsForDate,
   getLogsForMonth,
   getLogsForWeek,
@@ -11,7 +9,7 @@ import {
 } from '@/utils';
 
 export function useWorkLogs(selectedDateInput?: string | Date) {
-  const { workLogs, projects, addWorkLog, updateWorkLog, deleteWorkLog } = useAppContext();
+  const { workLogs, projects, addWorkLog, updateWorkLog, deleteWorkLog, weekStart } = useAppContext();
   const selectedDate = selectedDateInput
     ? typeof selectedDateInput === 'string'
       ? selectedDateInput
@@ -19,7 +17,7 @@ export function useWorkLogs(selectedDateInput?: string | Date) {
     : toDateKey(new Date());
 
   const dayLogs = getLogsForDate(workLogs, selectedDate);
-  const weeklyLogs = getLogsForWeek(workLogs, selectedDate);
+  const weeklyLogs = getLogsForWeek(workLogs, selectedDate, weekStart);
   const monthlyLogs = getLogsForMonth(workLogs, selectedDate);
   const getLogForProject = (projectId: string) => dayLogs.find((log) => log.projectId === projectId);
 
@@ -48,11 +46,8 @@ export function useWorkLogs(selectedDateInput?: string | Date) {
       }
     },
     dailyHours: calculateHoursTotal(dayLogs),
-    dailyEarnings: dayLogs.reduce((total, log) => {
-      const project = projects.find((item) => item.id === log.projectId);
-      return total + calculateDailyEarnings(log, project);
-    }, 0),
-    weeklyEarnings: calculateWeeklyTotal(weeklyLogs, projects),
-    monthlyEarnings: calculateMonthlyTotal(monthlyLogs, projects),
+    dailyEarningsByCurrency: calculateCurrencyTotals(dayLogs, projects),
+    weeklyEarningsByCurrency: calculateCurrencyTotals(weeklyLogs, projects),
+    monthlyEarningsByCurrency: calculateCurrencyTotals(monthlyLogs, projects),
   };
 }
