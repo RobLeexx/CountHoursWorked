@@ -5,13 +5,12 @@ import { AppText } from '../atoms/AppText';
 
 export type HeaderProps = {
   title: string;
-  subtitle?: string;
   leftAction?: ReactNode;
   rightAction?: ReactNode;
   compact?: boolean;
 };
 
-export function Header({ title, subtitle, leftAction, rightAction, compact = false }: HeaderProps) {
+export function Header({ title, leftAction, rightAction, compact = false }: HeaderProps) {
   return (
     <View style={[styles.container, compact ? styles.containerCompact : null]}>
       {leftAction ? <View style={[styles.side, compact ? styles.sideCompact : null]}>{leftAction}</View> : null}
@@ -20,11 +19,6 @@ export function Header({ title, subtitle, leftAction, rightAction, compact = fal
         <AppText variant="heading" weight="bold">
           {title}
         </AppText>
-        {subtitle ? (
-          <AppText color="muted" style={styles.subtitle}>
-            {subtitle}
-          </AppText>
-        ) : null}
       </View>
 
       {rightAction ? <View style={[styles.side, compact ? styles.sideCompact : null]}>{rightAction}</View> : null}
@@ -46,10 +40,7 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    gap: 6,
-  },
-  subtitle: {
-    maxWidth: 560,
+    gap: 0,
   },
   side: {
     alignItems: 'center',

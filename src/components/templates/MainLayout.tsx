@@ -9,7 +9,6 @@ import { Header } from '../organisms/Header';
 
 export type MainLayoutProps = {
   title: string;
-  subtitle?: string;
   rightAction?: ReactNode;
   showHeader?: boolean;
   children: ReactNode;
@@ -18,7 +17,6 @@ export type MainLayoutProps = {
 
 export function MainLayout({
   title,
-  subtitle,
   rightAction,
   showHeader = true,
   children,
@@ -66,7 +64,7 @@ export function MainLayout({
         showsVerticalScrollIndicator={false}
       >
         <View style={[styles.inner, { maxWidth: theme.sizes.maxContentWidth }]}>
-          {showHeader ? <Header title={title} subtitle={subtitle} rightAction={rightAction} /> : null}
+          {showHeader ? <Header title={title} rightAction={rightAction} /> : null}
           <View style={styles.body}>{children}</View>
         </View>
       </ScrollView>
@@ -80,7 +78,7 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     gap: 24,
-    paddingBottom: 40,
+    paddingBottom: 10,
   },
   inner: {
     alignSelf: 'center',
