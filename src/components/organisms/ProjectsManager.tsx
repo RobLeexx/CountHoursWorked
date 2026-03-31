@@ -42,6 +42,8 @@ export type ProjectsManagerProps = {
   onCreateProject: (input: CreateProjectInput) => Project | null;
   onUpdateProject: (id: string, updates: UpdateProjectInput) => void;
   onDeleteProject: (id: string) => void;
+  defaultOpen?: boolean;
+  showToggle?: boolean;
 };
 
 function ContractTypeSelector({ value, onChange }: ContractTypeSelectorProps) {
@@ -267,10 +269,12 @@ export function ProjectsManager({
   onCreateProject,
   onUpdateProject,
   onDeleteProject,
+  defaultOpen = false,
+  showToggle = true,
 }: ProjectsManagerProps) {
   const { locale, t } = useAppContext();
   const theme = useAppTheme();
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(defaultOpen);
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
   const [projectPendingDelete, setProjectPendingDelete] = useState<Project | null>(null);
   const editingProject = useMemo(
@@ -280,12 +284,14 @@ export function ProjectsManager({
 
   return (
     <View style={styles.wrapper}>
-      <AppButton
-        title={isOpen ? t('projects.hide') : t('projects.manage')}
-        onPress={() => setIsOpen((currentValue) => !currentValue)}
-        variant="secondary"
-        fullWidth={false}
-      />
+      {showToggle ? (
+        <AppButton
+          title={isOpen ? t('projects.hide') : t('projects.manage')}
+          onPress={() => setIsOpen((currentValue) => !currentValue)}
+          variant="secondary"
+          fullWidth={false}
+        />
+      ) : null}
 
       {isOpen ? (
         <View

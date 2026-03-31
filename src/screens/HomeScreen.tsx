@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import { StyleSheet } from 'react-native';
 
-import { AppText, DayDetails, MainLayout, ProjectsManager, Summary, WorkCalendar } from '@/components';
+import { AppText, DayDetails, MainLayout, Summary, WorkCalendar } from '@/components';
 import { useAppContext } from '@/context';
 import { useProjects, useWorkLogs } from '@/hooks';
 import { addMonths, fromDateKey, toDateKey } from '@/utils';
 
 export function HomeScreen() {
   const { holidayDates, isHydrated, t, toggleHoliday } = useAppContext();
-  const { projects, createProject, updateProject, deleteProject } = useProjects();
+  const { projects } = useProjects();
   const today = useMemo(() => new Date(), []);
   const [selectedDate, setSelectedDate] = useState(toDateKey(today));
   const [visibleMonth, setVisibleMonth] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
@@ -75,13 +75,6 @@ export function HomeScreen() {
         onSaveHours={setHoursForProject}
         onClearHours={clearHoursForProject}
         onToggleHoliday={() => toggleHoliday(selectedDate)}
-      />
-
-      <ProjectsManager
-        projects={projects}
-        onCreateProject={createProject}
-        onUpdateProject={updateProject}
-        onDeleteProject={deleteProject}
       />
     </MainLayout>
   );

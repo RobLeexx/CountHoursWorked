@@ -30,24 +30,23 @@ const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
     flexDirection: 'row',
-    gap: 16,
     justifyContent: 'space-between',
-    minHeight: 46,
+    marginTop: 10,
+    marginBottom: -30,
   },
   containerCompact: {
-    gap: 10,
     minHeight: 34,
   },
   content: {
-    flex: 1,
-    gap: 0,
+    justifyContent: 'center',
   },
   side: {
     alignItems: 'center',
+    alignSelf: 'stretch',
     justifyContent: 'center',
-    minWidth: 42,
+    minWidth: 56,
   },
   sideCompact: {
-    minWidth: 34,
+    minWidth: 44,
   },
 });

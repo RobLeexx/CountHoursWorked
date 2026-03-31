@@ -11,6 +11,13 @@ export const translations: Record<AppLanguage, TranslationTree> = {
       settings: 'Settings',
       openSettings: 'Open settings',
       goBack: 'Go back',
+      openMenu: 'Open menu',
+    },
+    sidebar: {
+      home: 'Home',
+      projects: 'Manage Projects',
+      projections: 'Projections',
+      conversions: 'Conversions',
     },
     calendar: {
       previousMonth: 'Previous month',
@@ -98,6 +105,13 @@ export const translations: Record<AppLanguage, TranslationTree> = {
       settings: 'Configuración',
       openSettings: 'Abrir configuración',
       goBack: 'Volver',
+      openMenu: 'Abrir menú',
+    },
+    sidebar: {
+      home: 'Inicio',
+      projects: 'Gestionar proyectos',
+      projections: 'Proyecciones',
+      conversions: 'Conversiones',
     },
     calendar: {
       previousMonth: 'Mes anterior',

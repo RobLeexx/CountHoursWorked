@@ -11,7 +11,7 @@ export type MainLayoutProps = {
   title: string;
   rightAction?: ReactNode;
   showHeader?: boolean;
-  children: ReactNode;
+  children?: ReactNode;
   contentContainerStyle?: StyleProp<ViewStyle>;
 };
 
