@@ -1,11 +1,20 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Image, Linking, Modal, Pressable, StyleSheet, View } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 
 import { useAppContext } from '@/context';
-import type { ContractFile, ContractType, CreateProjectInput, CurrencyCode, Project, UpdateProjectInput } from '@/types';
+import type {
+  ContractFile,
+  ContractType,
+  CreateProjectInput,
+  CurrencyCode,
+  Project,
+  UpdateProjectInput,
+  WeekdayEstimationKey,
+  WeeklyEstimation,
+} from '@/types';
 import { useAppTheme } from '@/theme';
-import { formatCurrency, formatDate, fromDateKey, parseDecimalInput, toDateKey } from '@/utils';
+import { formatCurrency, formatDate, fromDateKey, hasWeeklyEstimation, parseDecimalInput, toDateKey } from '@/utils';
 
 import { AppButton } from '../atoms/AppButton';
 import { AppInput } from '../atoms/AppInput';
@@ -14,6 +23,36 @@ import { DateField } from '../molecules/DateField';
 
 const CONTRACT_TYPES: ContractType[] = ['hourly', 'temporary', 'part-time', 'full-time', 'freelance'];
 const CURRENCIES: CurrencyCode[] = ['EUR', 'USD'];
+const WEEKDAY_FIELDS: { key: WeekdayEstimationKey; labelKey: string }[] = [
+  { key: 'monHours', labelKey: 'projects.monHours' },
+  { key: 'tueHours', labelKey: 'projects.tueHours' },
+  { key: 'wedHours', labelKey: 'projects.wedHours' },
+  { key: 'thuHours', labelKey: 'projects.thuHours' },
+  { key: 'friHours', labelKey: 'projects.friHours' },
+  { key: 'satHours', labelKey: 'projects.satHours' },
+  { key: 'sunHours', labelKey: 'projects.sunHours' },
+];
+const EMPTY_WEEKLY_ESTIMATION: WeeklyEstimation = {
+  monHours: 0,
+  tueHours: 0,
+  wedHours: 0,
+  thuHours: 0,
+  friHours: 0,
+  satHours: 0,
+  sunHours: 0,
+};
+
+function toWeeklyEstimationState(weeklyEstimation?: WeeklyEstimation): Record<WeekdayEstimationKey, string> {
+  return {
+    monHours: weeklyEstimation?.monHours ? String(weeklyEstimation.monHours) : '',
+    tueHours: weeklyEstimation?.tueHours ? String(weeklyEstimation.tueHours) : '',
+    wedHours: weeklyEstimation?.wedHours ? String(weeklyEstimation.wedHours) : '',
+    thuHours: weeklyEstimation?.thuHours ? String(weeklyEstimation.thuHours) : '',
+    friHours: weeklyEstimation?.friHours ? String(weeklyEstimation.friHours) : '',
+    satHours: weeklyEstimation?.satHours ? String(weeklyEstimation.satHours) : '',
+    sunHours: weeklyEstimation?.sunHours ? String(weeklyEstimation.sunHours) : '',
+  };
+}
 
 type ContractTypeSelectorProps = {
   value: ContractType;
@@ -26,6 +65,7 @@ type ProjectFormValues = {
   currency: CurrencyCode;
   contractType: ContractType;
   startDate: string;
+  weeklyEstimation?: WeeklyEstimation;
   contractFile?: ContractFile;
 };
 
@@ -153,10 +193,34 @@ function ProjectForm({ title, submitLabel, initialValues, onSubmit, onCancel }: 
   const [currency, setCurrency] = useState<CurrencyCode>(initialValues.currency);
   const [contractType, setContractType] = useState<ContractType>(initialValues.contractType);
   const [startDate, setStartDate] = useState(initialValues.startDate);
+  const [isEstimationOpen, setIsEstimationOpen] = useState(Boolean(initialValues.weeklyEstimation));
+  const [weeklyEstimation, setWeeklyEstimation] = useState<Record<WeekdayEstimationKey, string>>(
+    toWeeklyEstimationState(initialValues.weeklyEstimation),
+  );
   const [contractFile, setContractFile] = useState<ContractFile | undefined>(initialValues.contractFile);
+
+  useEffect(() => {
+    setName(initialValues.name);
+    setHourlyRate(initialValues.hourlyRate);
+    setCurrency(initialValues.currency);
+    setContractType(initialValues.contractType);
+    setStartDate(initialValues.startDate);
+    setIsEstimationOpen(Boolean(initialValues.weeklyEstimation));
+    setWeeklyEstimation(toWeeklyEstimationState(initialValues.weeklyEstimation));
+    setContractFile(initialValues.contractFile);
+  }, [initialValues]);
 
   const parsedRate = parseDecimalInput(hourlyRate);
   const canSubmit = Boolean(name.trim()) && parsedRate !== null && parsedRate > 0;
+  const parsedWeeklyEstimation = WEEKDAY_FIELDS.reduce<WeeklyEstimation>((result, field) => {
+    const parsedValue = parseDecimalInput(weeklyEstimation[field.key]);
+
+    return {
+      ...result,
+      [field.key]: parsedValue === null || parsedValue < 0 ? 0 : parsedValue,
+    };
+  }, EMPTY_WEEKLY_ESTIMATION);
+  const hasConfiguredEstimation = Object.values(parsedWeeklyEstimation).some((value) => value > 0);
 
   return (
     <View
@@ -214,6 +278,51 @@ function ProjectForm({ title, submitLabel, initialValues, onSubmit, onCancel }: 
       </View>
       <DateField label={t('projects.startDate')} onChange={setStartDate} value={startDate} />
 
+      <View
+        style={[
+          styles.accordionCard,
+          {
+            backgroundColor: theme.colors.surface,
+            borderColor: theme.colors.border,
+          },
+        ]}
+      >
+        <Pressable onPress={() => setIsEstimationOpen((currentValue) => !currentValue)} style={styles.accordionToggle}>
+          <View style={styles.accordionText}>
+            <AppText weight="semibold">{t('projects.weeklyEstimationTitle')}</AppText>
+            <AppText color="muted" variant="bodySmall">
+              {t('projects.weeklyEstimationDescription')}
+            </AppText>
+          </View>
+          <AppText color="primary" weight="semibold">
+            {isEstimationOpen ? t('common.close') : t('common.edit')}
+          </AppText>
+        </Pressable>
+
+        {isEstimationOpen ? (
+          <View style={styles.estimationGrid}>
+            {WEEKDAY_FIELDS.map((field) => (
+              <View key={field.key} style={styles.estimationField}>
+                <AppText variant="bodySmall" color="muted">
+                  {t(field.labelKey)}
+                </AppText>
+                <AppInput
+                  keyboardType="decimal-pad"
+                  onChangeText={(value) => {
+                    setWeeklyEstimation((currentValue) => ({
+                      ...currentValue,
+                      [field.key]: value,
+                    }));
+                  }}
+                  placeholder="0"
+                  value={weeklyEstimation[field.key]}
+                />
+              </View>
+            ))}
+          </View>
+        ) : null}
+      </View>
+
       <View style={styles.fieldBlock}>
         <AppText variant="bodySmall" color="muted">
           {t('projects.contractType')}
@@ -246,14 +355,17 @@ function ProjectForm({ title, submitLabel, initialValues, onSubmit, onCancel }: 
           title={submitLabel}
           onPress={() => {
             if (canSubmit && parsedRate !== null) {
-              onSubmit({
+              const payload = {
                 name,
                 hourlyRate: parsedRate,
                 currency,
                 contractType,
                 startDate,
+                weeklyEstimation: hasConfiguredEstimation ? parsedWeeklyEstimation : undefined,
                 contractFile,
-              });
+              };
+
+              onSubmit(payload);
             }
           }}
           disabled={!canSubmit}
@@ -274,6 +386,7 @@ export function ProjectsManager({
 }: ProjectsManagerProps) {
   const { locale, t } = useAppContext();
   const theme = useAppTheme();
+  const isFlatLayout = !showToggle;
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
   const [projectPendingDelete, setProjectPendingDelete] = useState<Project | null>(null);
@@ -297,34 +410,17 @@ export function ProjectsManager({
         <View
           style={[
             styles.section,
-            {
-              backgroundColor: theme.colors.surface,
-              borderColor: theme.colors.border,
-            },
+            isFlatLayout
+              ? styles.sectionFlat
+              : {
+                  backgroundColor: theme.colors.surface,
+                  borderColor: theme.colors.border,
+                },
           ]}
         >
           <AppText variant="title" weight="bold">
             {t('projects.title')}
           </AppText>
-
-          <ProjectForm
-            title={t('projects.createTitle')}
-            submitLabel={t('projects.saveProject')}
-            initialValues={{
-              name: '',
-              hourlyRate: '',
-              currency: 'EUR',
-              contractType: 'hourly',
-              startDate: toDateKey(new Date()),
-            }}
-            onSubmit={(values) => {
-              const project = onCreateProject(values as CreateProjectInput);
-
-              if (project) {
-                setEditingProjectId(null);
-              }
-            }}
-          />
 
           {projects.length === 0 ? (
             <AppText color="muted">{t('projects.noProjects')}</AppText>
@@ -351,6 +447,11 @@ export function ProjectsManager({
                           date: formatDate(fromDateKey(project.startDate), locale),
                         })}
                       </AppText>
+                      {hasWeeklyEstimation(project) ? (
+                        <AppText color="muted" variant="bodySmall">
+                          {t('projects.weeklyEstimationConfigured')}
+                        </AppText>
+                      ) : null}
                     </View>
                     <View style={styles.projectButtons}>
                       <AppButton
@@ -374,13 +475,14 @@ export function ProjectsManager({
                     <ProjectForm
                       key={editingProject.id}
                       title={t('projects.editTitle')}
-                      submitLabel={t('projects.updateProject')}
+                      submitLabel={t('projects.updateInformation')}
                       initialValues={{
                         name: editingProject.name,
                         hourlyRate: String(editingProject.hourlyRate),
                         currency: editingProject.currency,
                         contractType: editingProject.contractType,
                         startDate: editingProject.startDate,
+                        weeklyEstimation: editingProject.weeklyEstimation,
                         contractFile: editingProject.contractFile,
                       }}
                       onSubmit={(values) => {
@@ -394,6 +496,26 @@ export function ProjectsManager({
               );
             })
           )}
+
+          <ProjectForm
+            title={t('projects.createTitle')}
+            submitLabel={t('projects.saveProject')}
+            initialValues={{
+              name: '',
+              hourlyRate: '',
+              currency: 'EUR',
+              contractType: 'hourly',
+              startDate: toDateKey(new Date()),
+              weeklyEstimation: undefined,
+            }}
+            onSubmit={(values) => {
+              const project = onCreateProject(values as CreateProjectInput);
+
+              if (project) {
+                setEditingProjectId(null);
+              }
+            }}
+          />
         </View>
       ) : null}
 
@@ -460,11 +582,43 @@ const styles = StyleSheet.create({
     gap: 16,
     padding: 20,
   },
+  sectionFlat: {
+    backgroundColor: 'transparent',
+    borderRadius: 0,
+    borderWidth: 0,
+    gap: 16,
+    padding: 0,
+  },
   formCard: {
     borderRadius: 18,
     borderWidth: 1,
     gap: 12,
     padding: 16,
+  },
+  accordionCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 12,
+    padding: 14,
+  },
+  accordionToggle: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 12,
+    justifyContent: 'space-between',
+  },
+  accordionText: {
+    flex: 1,
+    gap: 4,
+  },
+  estimationGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  estimationField: {
+    gap: 6,
+    minWidth: '47%',
   },
   fieldBlock: {
     gap: 8,

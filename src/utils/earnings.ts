@@ -1,4 +1,6 @@
-import type { CurrencyCode, Project, WorkLog } from '@/types';
+import type { CurrencyCode, Project, WeekdayEstimationKey, WorkLog } from '@/types';
+
+import { addDays, toDateKey } from './dateHelpers';
 
 export type CurrencyTotals = Partial<Record<CurrencyCode, number>>;
 
@@ -46,6 +48,86 @@ export function calculateCurrencyTotals(logs: WorkLog[], projects: Project[]): C
     return {
       ...totals,
       [project.currency]: currentValue + earnings,
+    };
+  }, {});
+}
+
+const WEEKDAY_ESTIMATION_KEYS: Record<number, WeekdayEstimationKey> = {
+  0: 'sunHours',
+  1: 'monHours',
+  2: 'tueHours',
+  3: 'wedHours',
+  4: 'thuHours',
+  5: 'friHours',
+  6: 'satHours',
+};
+
+export function hasWeeklyEstimation(project: Project) {
+  return Boolean(project.weeklyEstimation) && Object.values(project.weeklyEstimation ?? {}).some((value) => value > 0);
+}
+
+export function calculateProjectMonthlyProjection(
+  project: Project,
+  workLogs: WorkLog[],
+  holidayDates: string[],
+  baseDate = new Date(),
+) {
+  if (!project.weeklyEstimation || !hasWeeklyEstimation(project)) {
+    return 0;
+  }
+
+  const monthStart = new Date(baseDate.getFullYear(), baseDate.getMonth(), 1);
+  const monthEnd = new Date(baseDate.getFullYear(), baseDate.getMonth() + 1, 0);
+  let total = 0;
+
+  for (
+    let cursor = monthStart;
+    cursor <= monthEnd;
+    cursor = addDays(cursor, 1)
+  ) {
+    const dateKey = toDateKey(cursor);
+
+    if (dateKey < project.startDate) {
+      continue;
+    }
+
+    if (holidayDates.includes(dateKey)) {
+      continue;
+    }
+
+    const estimationKey = WEEKDAY_ESTIMATION_KEYS[cursor.getDay()];
+    const estimatedHours = project.weeklyEstimation[estimationKey] ?? 0;
+    const loggedHours = workLogs
+      .filter((log) => log.projectId === project.id && log.date === dateKey)
+      .reduce((sum, log) => sum + log.hoursWorked, 0);
+    const remainingHours = Math.max(estimatedHours - loggedHours, 0);
+
+    if (remainingHours <= 0) {
+      continue;
+    }
+
+    total += remainingHours * project.hourlyRate;
+  }
+
+  return Number(total.toFixed(2));
+}
+
+export function calculateMonthlyProjectionTotals(
+  projects: Project[],
+  workLogs: WorkLog[],
+  holidayDates: string[],
+  baseDate = new Date(),
+): CurrencyTotals {
+  return projects.reduce<CurrencyTotals>((totals, project) => {
+    const projectedTotal = calculateProjectMonthlyProjection(project, workLogs, holidayDates, baseDate);
+
+    if (projectedTotal <= 0) {
+      return totals;
+    }
+
+    return {
+      ...totals,
+      [project.currency]: Number(((totals[project.currency] ?? 0) + projectedTotal).toFixed(2)),
     };
   }, {});
 }

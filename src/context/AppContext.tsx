@@ -11,6 +11,7 @@ import type {
   ThemeMode,
   UpdateProjectInput,
   UpdateWorkLogInput,
+  WeeklyEstimation,
   WeekStart,
   WorkLog,
 } from '@/types';
@@ -50,6 +51,24 @@ const initialWorkLogs: WorkLog[] = [];
 const initialHolidayDates: string[] = [];
 const DEFAULT_PROJECT_CURRENCY = 'EUR';
 
+function normalizeWeeklyEstimation(weeklyEstimation?: Partial<WeeklyEstimation>) {
+  if (!weeklyEstimation) {
+    return undefined;
+  }
+
+  const normalizedValue: WeeklyEstimation = {
+    monHours: Number(weeklyEstimation.monHours ?? 0),
+    tueHours: Number(weeklyEstimation.tueHours ?? 0),
+    wedHours: Number(weeklyEstimation.wedHours ?? 0),
+    thuHours: Number(weeklyEstimation.thuHours ?? 0),
+    friHours: Number(weeklyEstimation.friHours ?? 0),
+    satHours: Number(weeklyEstimation.satHours ?? 0),
+    sunHours: Number(weeklyEstimation.sunHours ?? 0),
+  };
+
+  return Object.values(normalizedValue).some((value) => value > 0) ? normalizedValue : undefined;
+}
+
 function normalizeProject(project: Partial<Project>): Project {
   return {
     id: project.id ?? createId('project'),
@@ -58,6 +77,7 @@ function normalizeProject(project: Partial<Project>): Project {
     currency: project.currency === 'USD' ? 'USD' : DEFAULT_PROJECT_CURRENCY,
     contractType: project.contractType ?? 'hourly',
     startDate: project.startDate?.trim() ?? '',
+    weeklyEstimation: normalizeWeeklyEstimation(project.weeklyEstimation),
     contractFile: project.contractFile,
   };
 }
@@ -200,7 +220,7 @@ export function AppProvider({ children }: PropsWithChildren) {
             : [...currentDates, date],
         );
       },
-      createProject: ({ name, hourlyRate, currency, contractType, startDate, contractFile }) => {
+      createProject: ({ name, hourlyRate, currency, contractType, startDate, weeklyEstimation, contractFile }) => {
         const normalizedName = name.trim();
         const normalizedStartDate = startDate.trim();
 
@@ -215,6 +235,7 @@ export function AppProvider({ children }: PropsWithChildren) {
           currency,
           contractType,
           startDate: normalizedStartDate,
+          weeklyEstimation: normalizeWeeklyEstimation(weeklyEstimation),
           contractFile,
         };
 
@@ -239,6 +260,10 @@ export function AppProvider({ children }: PropsWithChildren) {
               currency: updates.currency ?? project.currency,
               startDate: updates.startDate?.trim() || project.startDate,
               name: updates.name?.trim() || project.name,
+              weeklyEstimation:
+                updates.weeklyEstimation === undefined
+                  ? project.weeklyEstimation
+                  : normalizeWeeklyEstimation(updates.weeklyEstimation),
             };
           }),
         );

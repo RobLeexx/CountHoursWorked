@@ -1,6 +1,16 @@
 import type { CurrencyCode } from './app';
 
 export type ContractType = 'hourly' | 'temporary' | 'part-time' | 'full-time' | 'freelance';
+export type WeekdayEstimationKey =
+  | 'monHours'
+  | 'tueHours'
+  | 'wedHours'
+  | 'thuHours'
+  | 'friHours'
+  | 'satHours'
+  | 'sunHours';
+
+export type WeeklyEstimation = Record<WeekdayEstimationKey, number>;
 
 export type ContractFile = {
   uri: string;
@@ -15,6 +25,7 @@ export type Project = {
   currency: CurrencyCode;
   contractType: ContractType;
   startDate: string;
+  weeklyEstimation?: WeeklyEstimation;
   contractFile?: ContractFile;
 };
 
@@ -24,6 +35,7 @@ export type CreateProjectInput = {
   currency: CurrencyCode;
   contractType: ContractType;
   startDate: string;
+  weeklyEstimation?: WeeklyEstimation;
   contractFile?: ContractFile;
 };
 
