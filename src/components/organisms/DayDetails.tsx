@@ -99,6 +99,8 @@ export function DayDetails({
   const canSave = Boolean(selectedProjectId) && parsedHours !== null && parsedHours >= 0;
   const currentEarnings =
     currentLog && selectedProject ? calculateDailyEarnings(currentLog, selectedProject) : 0;
+  const saveButtonLabel = currentLog ? t('common.update') : t('day.saveHours');
+  const clearButtonLabel = currentLog ? t('common.delete') : t('common.clear');
 
   const commitHours = () => {
     if (!canSave || parsedHours === null) {
@@ -180,9 +182,9 @@ export function DayDetails({
           </View>
 
           <View style={styles.buttonRow}>
-            <AppButton title={t('day.saveHours')} onPress={commitHours} disabled={!canSave} fullWidth={false} />
+            <AppButton title={saveButtonLabel} onPress={commitHours} disabled={!canSave} fullWidth={false} />
             <AppButton
-              title={t('common.clear')}
+              title={clearButtonLabel}
               onPress={() => onClearHours(selectedProjectId)}
               variant="secondary"
               fullWidth={false}

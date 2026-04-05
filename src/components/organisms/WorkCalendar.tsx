@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { useAppContext } from '@/context';
@@ -14,8 +15,11 @@ export type WorkCalendarProps = {
   holidayDates: string[];
   workLogs: WorkLog[];
   onSelectDate: (dateKey: string) => void;
+  onOpenDate: (dateKey: string) => void;
   onChangeMonth: (direction: 'previous' | 'next') => void;
 };
+
+const DOUBLE_TAP_DELAY_MS = 280;
 
 export function WorkCalendar({
   selectedDate,
@@ -23,6 +27,7 @@ export function WorkCalendar({
   holidayDates,
   workLogs,
   onSelectDate,
+  onOpenDate,
   onChangeMonth,
 }: WorkCalendarProps) {
   const { language, locale, t, weekStart } = useAppContext();
@@ -32,6 +37,26 @@ export function WorkCalendar({
   const loggedDates = new Set(workLogs.map((log) => log.date));
   const holidayDateSet = new Set(holidayDates);
   const todayKey = toDateKey(new Date());
+  const lastTapRef = useRef<{ dateKey: string; timestamp: number }>({
+    dateKey: '',
+    timestamp: 0,
+  });
+
+  const handleDayPress = (dateKey: string) => {
+    const now = Date.now();
+    const isDoubleTap =
+      lastTapRef.current.dateKey === dateKey && now - lastTapRef.current.timestamp <= DOUBLE_TAP_DELAY_MS;
+
+    onSelectDate(dateKey);
+
+    if (isDoubleTap) {
+      lastTapRef.current = { dateKey: '', timestamp: 0 };
+      onOpenDate(dateKey);
+      return;
+    }
+
+    lastTapRef.current = { dateKey, timestamp: now };
+  };
 
   return (
     <View
@@ -79,7 +104,7 @@ export function WorkCalendar({
           return (
             <View key={day.dateKey} style={styles.dayWrapper}>
               <Pressable
-                onPress={() => onSelectDate(day.dateKey)}
+                onPress={() => handleDayPress(day.dateKey)}
                 style={[
                   styles.dayCell,
                   {
