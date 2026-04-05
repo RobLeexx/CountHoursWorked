@@ -36,7 +36,14 @@ export const translations: Record<AppLanguage, TranslationTree> = {
       update: 'Update',
     },
     projections: {
+      estimatedMonthHours: 'Estimated hours this month',
       estimatedMonthEarnings: 'Estimated earnings this month',
+      holidayExtraHours: 'Holiday extra hours',
+      holidayExtraEarnings: 'Holiday extra earnings',
+      loggedDayAdjustmentHours: 'Logged adjustment hours',
+      loggedDayAdjustmentEarnings: 'Logged adjustment earnings',
+      finalTotalHours: 'Final total hours',
+      finalTotalEarnings: 'Final total earnings',
       noEstimation: 'Add a weekly estimation to a project to see projections here.',
     },
     settings: {
@@ -155,7 +162,14 @@ export const translations: Record<AppLanguage, TranslationTree> = {
       update: 'Actualizar',
     },
     projections: {
+      estimatedMonthHours: 'Horas estimadas este mes',
       estimatedMonthEarnings: 'Ganancias estimadas este mes',
+      holidayExtraHours: 'Horas extra en festivos',
+      holidayExtraEarnings: 'Ganancias extra en festivos',
+      loggedDayAdjustmentHours: 'Ajuste por horas registradas',
+      loggedDayAdjustmentEarnings: 'Ajuste por ganancias registradas',
+      finalTotalHours: 'Horas totales finales',
+      finalTotalEarnings: 'Ganancias totales finales',
       noEstimation: 'Anade una estimacion semanal a un proyecto para ver proyecciones aqui.',
     },
     settings: {

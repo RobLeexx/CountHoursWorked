@@ -1,6 +1,6 @@
-import type { CurrencyCode, Project, WeekdayEstimationKey, WorkLog } from '@/types';
+import type { CurrencyCode, HolidayLike, Project, WeekdayEstimationKey, WorkLog } from '@/types';
 
-import { addDays, toDateKey } from './dateHelpers';
+import { addDays, fromDateKey, toDateKey } from './dateHelpers';
 
 export type CurrencyTotals = Partial<Record<CurrencyCode, number>>;
 
@@ -66,108 +66,202 @@ export function hasWeeklyEstimation(project: Project) {
   return Boolean(project.weeklyEstimation) && Object.values(project.weeklyEstimation ?? {}).some((value) => value > 0);
 }
 
-function calculateProjectMonthlyProjectionHours(
-  project: Project,
-  workLogs: WorkLog[],
-  holidayDates: string[],
-  baseDate = new Date(),
-) {
-  if (!project.weeklyEstimation || !hasWeeklyEstimation(project)) {
+export type MonthlyProjection = {
+  baseProjectedHours: number;
+  baseProjectedEarningsByCurrency: CurrencyTotals;
+  holidayExtraHours: number;
+  holidayExtraEarningsByCurrency: CurrencyTotals;
+  loggedDayAdjustmentHours: number;
+  loggedDayAdjustmentEarningsByCurrency: CurrencyTotals;
+  totalProjectedHours: number;
+  totalProjectedEarningsByCurrency: CurrencyTotals;
+};
+
+type ProjectionLayerTotals = {
+  hours: number;
+  earningsByCurrency: CurrencyTotals;
+};
+
+function getEstimatedHoursForDate(project: Project, date: Date) {
+  if (!project.weeklyEstimation) {
     return 0;
   }
 
-  const currentDay = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate());
-  const monthStart = new Date(baseDate.getFullYear(), baseDate.getMonth(), 1);
-  const monthEnd = new Date(baseDate.getFullYear(), baseDate.getMonth() + 1, 0);
-  const projectionStart = currentDay > monthStart ? currentDay : monthStart;
-  const holidayDateSet = new Set(holidayDates);
-  const loggedHoursByDate = workLogs.reduce<Record<string, number>>((totals, log) => {
-    if (log.projectId !== project.id) {
+  const estimationKey = WEEKDAY_ESTIMATION_KEYS[date.getDay()];
+  return project.weeklyEstimation[estimationKey] ?? 0;
+}
+
+function toHolidayDateSet(holidays: HolidayLike[]) {
+  return new Set(
+    holidays
+      .map((holiday) => (typeof holiday === 'string' ? holiday : holiday.date))
+      .filter((date): date is string => Boolean(date)),
+  );
+}
+
+function addCurrencyValue(totals: CurrencyTotals, currency: CurrencyCode, amount: number) {
+  totals[currency] = (totals[currency] ?? 0) + amount;
+}
+
+function createProjectionLayerTotals(): ProjectionLayerTotals {
+  return {
+    hours: 0,
+    earningsByCurrency: {},
+  };
+}
+
+function addToProjectionLayer(
+  layer: ProjectionLayerTotals,
+  currency: CurrencyCode,
+  hours: number,
+  hourlyRate: number,
+) {
+  if (hours === 0) {
+    return;
+  }
+
+  layer.hours += hours;
+  addCurrencyValue(layer.earningsByCurrency, currency, hours * hourlyRate);
+}
+
+function buildLoggedHoursByProjectDate(
+  workLogs: WorkLog[],
+  monthStartKey: string,
+  monthEndKey: string,
+) {
+  return workLogs.reduce<Map<string, Map<string, number>>>((totals, log) => {
+    if (log.date < monthStartKey || log.date > monthEndKey) {
       return totals;
     }
 
-    return {
-      ...totals,
-      [log.date]: (totals[log.date] ?? 0) + log.hoursWorked,
-    };
+    const projectLogs = totals.get(log.projectId) ?? new Map<string, number>();
+    projectLogs.set(log.date, (projectLogs.get(log.date) ?? 0) + log.hoursWorked);
+    totals.set(log.projectId, projectLogs);
+    return totals;
+  }, new Map());
+}
+
+function mergeCurrencyTotals(...totalsList: CurrencyTotals[]) {
+  return totalsList.reduce<CurrencyTotals>((mergedTotals, totals) => {
+    Object.entries(totals).forEach(([currency, value]) => {
+      if (typeof value !== 'number') {
+        return;
+      }
+
+      mergedTotals[currency as CurrencyCode] = (mergedTotals[currency as CurrencyCode] ?? 0) + value;
+    });
+
+    return mergedTotals;
   }, {});
-  let totalHours = 0;
-
-  if (projectionStart > monthEnd) {
-    return 0;
-  }
-
-  for (let cursor = projectionStart; cursor <= monthEnd; cursor = addDays(cursor, 1)) {
-    const dateKey = toDateKey(cursor);
-
-    if (dateKey < project.startDate) {
-      continue;
-    }
-
-    if (holidayDateSet.has(dateKey)) {
-      continue;
-    }
-
-    const estimationKey = WEEKDAY_ESTIMATION_KEYS[cursor.getDay()];
-    const estimatedHours = project.weeklyEstimation[estimationKey] ?? 0;
-    const loggedHours = loggedHoursByDate[dateKey] ?? 0;
-    const remainingHours = Math.max(estimatedHours - loggedHours, 0);
-
-    if (remainingHours <= 0) {
-      continue;
-    }
-
-    totalHours += remainingHours;
-  }
-
-  return Number(totalHours.toFixed(2));
 }
 
-export function calculateProjectMonthlyProjection(
-  project: Project,
-  workLogs: WorkLog[],
-  holidayDates: string[],
-  baseDate = new Date(),
-) {
-  const totalHours = calculateProjectMonthlyProjectionHours(project, workLogs, holidayDates, baseDate);
-
-  if (totalHours <= 0) {
-    return 0;
-  }
-
-  const total = totalHours * project.hourlyRate;
-  return Number(total.toFixed(2));
-}
-
-export function calculateMonthlyProjectionHours(
-  projects: Project[],
-  workLogs: WorkLog[],
-  holidayDates: string[],
-  baseDate = new Date(),
-) {
-  const totalHours = projects.reduce((total, project) => {
-    return total + calculateProjectMonthlyProjectionHours(project, workLogs, holidayDates, baseDate);
-  }, 0);
-
-  return Number(totalHours.toFixed(2));
-}
-
-export function calculateMonthlyProjectionTotals(
-  projects: Project[],
-  workLogs: WorkLog[],
-  holidayDates: string[],
-  baseDate = new Date(),
-): CurrencyTotals {
-  return projects.reduce<CurrencyTotals>((totals, project) => {
-    const projectedTotal = calculateProjectMonthlyProjection(project, workLogs, holidayDates, baseDate);
-
-    if (projectedTotal <= 0) {
-      return totals;
+function roundCurrencyTotals(totals: CurrencyTotals) {
+  return Object.entries(totals).reduce<CurrencyTotals>((roundedTotals, [currency, value]) => {
+    if (typeof value !== 'number') {
+      return roundedTotals;
     }
 
     return {
-      ...totals,
-      [project.currency]: Number(((totals[project.currency] ?? 0) + projectedTotal).toFixed(2)),
+      ...roundedTotals,
+      [currency as CurrencyCode]: Number(value.toFixed(2)),
     };
   }, {});
+}
+
+function roundProjectionLayer(layer: ProjectionLayerTotals): ProjectionLayerTotals {
+  return {
+    hours: Number(layer.hours.toFixed(2)),
+    earningsByCurrency: roundCurrencyTotals(layer.earningsByCurrency),
+  };
+}
+
+function toMonthlyProjection(
+  baseLayer: ProjectionLayerTotals,
+  holidayExtraLayer: ProjectionLayerTotals,
+  loggedAdjustmentLayer: ProjectionLayerTotals,
+): MonthlyProjection {
+  const roundedBaseLayer = roundProjectionLayer(baseLayer);
+  const roundedHolidayExtraLayer = roundProjectionLayer(holidayExtraLayer);
+  const roundedLoggedAdjustmentLayer = roundProjectionLayer(loggedAdjustmentLayer);
+
+  return {
+    baseProjectedHours: roundedBaseLayer.hours,
+    baseProjectedEarningsByCurrency: roundedBaseLayer.earningsByCurrency,
+    holidayExtraHours: roundedHolidayExtraLayer.hours,
+    holidayExtraEarningsByCurrency: roundedHolidayExtraLayer.earningsByCurrency,
+    loggedDayAdjustmentHours: roundedLoggedAdjustmentLayer.hours,
+    loggedDayAdjustmentEarningsByCurrency: roundedLoggedAdjustmentLayer.earningsByCurrency,
+    totalProjectedHours: Number(
+      (roundedBaseLayer.hours + roundedHolidayExtraLayer.hours + roundedLoggedAdjustmentLayer.hours).toFixed(2),
+    ),
+    totalProjectedEarningsByCurrency: roundCurrencyTotals(
+      mergeCurrencyTotals(
+        roundedBaseLayer.earningsByCurrency,
+        roundedHolidayExtraLayer.earningsByCurrency,
+        roundedLoggedAdjustmentLayer.earningsByCurrency,
+      ),
+    ),
+  };
+}
+
+export function calculateMonthlyProjection(
+  projects: Project[],
+  workLogs: WorkLog[],
+  holidays: HolidayLike[],
+  selectedMonth = new Date(),
+): MonthlyProjection {
+  const monthStart = new Date(selectedMonth.getFullYear(), selectedMonth.getMonth(), 1);
+  const monthEnd = new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() + 1, 0);
+  const monthStartKey = toDateKey(monthStart);
+  const monthEndKey = toDateKey(monthEnd);
+  const holidayDateSet = toHolidayDateSet(holidays);
+  const projectedProjects = projects.filter(hasWeeklyEstimation);
+  const loggedHoursByProjectDate = buildLoggedHoursByProjectDate(workLogs, monthStartKey, monthEndKey);
+  const baseLayer = createProjectionLayerTotals();
+  const holidayExtraLayer = createProjectionLayerTotals();
+  const loggedAdjustmentLayer = createProjectionLayerTotals();
+
+  for (const project of projectedProjects) {
+    for (let cursor = monthStart; cursor <= monthEnd; cursor = addDays(cursor, 1)) {
+      const dateKey = toDateKey(cursor);
+
+      if (holidayDateSet.has(dateKey)) {
+        continue;
+      }
+
+      const dayHours = getEstimatedHoursForDate(project, cursor);
+
+      if (dayHours <= 0) {
+        continue;
+      }
+
+      addToProjectionLayer(baseLayer, project.currency, dayHours, project.hourlyRate);
+    }
+  }
+
+  for (const project of projectedProjects) {
+    const projectLoggedHours = loggedHoursByProjectDate.get(project.id);
+
+    if (!projectLoggedHours) {
+      continue;
+    }
+
+    for (const [dateKey, actualHours] of projectLoggedHours.entries()) {
+      if (holidayDateSet.has(dateKey)) {
+        addToProjectionLayer(holidayExtraLayer, project.currency, actualHours, project.hourlyRate);
+        continue;
+      }
+
+      const estimatedHours = getEstimatedHoursForDate(project, fromDateKey(dateKey));
+      const adjustmentHours = actualHours - estimatedHours;
+
+      if (adjustmentHours === 0) {
+        continue;
+      }
+
+      addToProjectionLayer(loggedAdjustmentLayer, project.currency, adjustmentHours, project.hourlyRate);
+    }
+  }
+
+  return toMonthlyProjection(baseLayer, holidayExtraLayer, loggedAdjustmentLayer);
 }

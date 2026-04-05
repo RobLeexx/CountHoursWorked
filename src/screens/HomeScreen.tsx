@@ -4,7 +4,7 @@ import { StyleSheet } from 'react-native';
 import { AppText, DayDetails, MainLayout, Summary, WorkCalendar } from '@/components';
 import { useAppContext } from '@/context';
 import { useProjects, useWorkLogs } from '@/hooks';
-import { addMonths, calculateMonthlyProjectionHours, calculateMonthlyProjectionTotals, fromDateKey, toDateKey } from '@/utils';
+import { addMonths, calculateMonthlyProjection, fromDateKey, toDateKey } from '@/utils';
 
 export function HomeScreen() {
   const { holidayDates, isHydrated, t, toggleHoliday } = useAppContext();
@@ -25,14 +25,7 @@ export function HomeScreen() {
     weeklyEarningsByCurrency,
     monthlyEarningsByCurrency,
   } = useWorkLogs(selectedDate);
-  const monthlyProjectionHours = useMemo(
-    () => calculateMonthlyProjectionHours(projects, workLogs, holidayDates, visibleMonth),
-    [holidayDates, projects, visibleMonth, workLogs],
-  );
-  const monthlyProjectionEarnings = useMemo(
-    () => calculateMonthlyProjectionTotals(projects, workLogs, holidayDates, visibleMonth),
-    [holidayDates, projects, visibleMonth, workLogs],
-  );
+  const monthlyProjection = calculateMonthlyProjection(projects, workLogs, holidayDates, visibleMonth);
 
   useEffect(() => {
     if (projects.length === 0) {
@@ -75,8 +68,8 @@ export function HomeScreen() {
         dailyEarnings={dailyEarningsByCurrency}
         weeklyEarnings={weeklyEarningsByCurrency}
         monthlyEarnings={monthlyEarningsByCurrency}
-        monthlyProjectionHours={monthlyProjectionHours}
-        monthlyProjectionEarnings={monthlyProjectionEarnings}
+        monthlyProjectionHours={monthlyProjection.totalProjectedHours}
+        monthlyProjectionEarnings={monthlyProjection.totalProjectedEarningsByCurrency}
         projectionMonth={visibleMonth}
       />
 
