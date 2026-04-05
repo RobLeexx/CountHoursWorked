@@ -46,6 +46,8 @@ export function useWorkLogs(selectedDateInput?: string | Date) {
       }
     },
     dailyHours: calculateHoursTotal(dayLogs),
+    weeklyHours: calculateHoursTotal(weeklyLogs),
+    monthlyHours: calculateHoursTotal(monthlyLogs),
     dailyEarningsByCurrency: calculateCurrencyTotals(dayLogs, projects),
     weeklyEarningsByCurrency: calculateCurrencyTotals(weeklyLogs, projects),
     monthlyEarningsByCurrency: calculateCurrencyTotals(monthlyLogs, projects),

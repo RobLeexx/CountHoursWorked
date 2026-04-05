@@ -66,7 +66,7 @@ export function hasWeeklyEstimation(project: Project) {
   return Boolean(project.weeklyEstimation) && Object.values(project.weeklyEstimation ?? {}).some((value) => value > 0);
 }
 
-export function calculateProjectMonthlyProjection(
+function calculateProjectMonthlyProjectionHours(
   project: Project,
   workLogs: WorkLog[],
   holidayDates: string[],
@@ -91,7 +91,7 @@ export function calculateProjectMonthlyProjection(
       [log.date]: (totals[log.date] ?? 0) + log.hoursWorked,
     };
   }, {});
-  let total = 0;
+  let totalHours = 0;
 
   if (projectionStart > monthEnd) {
     return 0;
@@ -117,10 +117,39 @@ export function calculateProjectMonthlyProjection(
       continue;
     }
 
-    total += remainingHours * project.hourlyRate;
+    totalHours += remainingHours;
   }
 
+  return Number(totalHours.toFixed(2));
+}
+
+export function calculateProjectMonthlyProjection(
+  project: Project,
+  workLogs: WorkLog[],
+  holidayDates: string[],
+  baseDate = new Date(),
+) {
+  const totalHours = calculateProjectMonthlyProjectionHours(project, workLogs, holidayDates, baseDate);
+
+  if (totalHours <= 0) {
+    return 0;
+  }
+
+  const total = totalHours * project.hourlyRate;
   return Number(total.toFixed(2));
+}
+
+export function calculateMonthlyProjectionHours(
+  projects: Project[],
+  workLogs: WorkLog[],
+  holidayDates: string[],
+  baseDate = new Date(),
+) {
+  const totalHours = projects.reduce((total, project) => {
+    return total + calculateProjectMonthlyProjectionHours(project, workLogs, holidayDates, baseDate);
+  }, 0);
+
+  return Number(totalHours.toFixed(2));
 }
 
 export function calculateMonthlyProjectionTotals(

@@ -57,9 +57,13 @@ export const translations: Record<AppLanguage, TranslationTree> = {
     },
     summary: {
       hoursToday: 'Hours today',
+      hoursWeek: 'Hours week',
+      hoursMonth: 'Hours month',
       todayEarnings: 'Today earnings',
       weekEarnings: 'Week earnings',
       monthEarnings: 'Month earnings',
+      monthProjectionHours: '{month} projection hours',
+      monthProjectionEarnings: '{month} projection money',
     },
     day: {
       holiday: 'Holiday',
@@ -166,9 +170,13 @@ export const translations: Record<AppLanguage, TranslationTree> = {
     },
     summary: {
       hoursToday: 'Horas de hoy',
+      hoursWeek: 'Horas semana',
+      hoursMonth: 'Horas mes',
       todayEarnings: 'Ganancias de hoy',
-      weekEarnings: 'Ganancias de la semana',
+      weekEarnings: 'Ganancias semana',
       monthEarnings: 'Ganancias del mes',
+      monthProjectionHours: 'Proyeccion de {month}',
+      monthProjectionEarnings: 'Ganancias de {month}',
     },
     day: {
       holiday: 'Día festivo',

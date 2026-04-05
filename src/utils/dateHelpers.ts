@@ -107,6 +107,14 @@ export function formatMonthLabel(dateInput: Date | string, locale = 'en-GB') {
   }).format(targetDate);
 }
 
+export function formatMonthName(dateInput: Date | string, locale = 'en-GB') {
+  const targetDate = typeof dateInput === 'string' ? fromDateKey(dateInput) : dateInput;
+
+  return new Intl.DateTimeFormat(locale, {
+    month: 'long',
+  }).format(targetDate);
+}
+
 export function formatLongDate(dateInput: Date | string, locale = 'en-GB') {
   const targetDate = typeof dateInput === 'string' ? fromDateKey(dateInput) : dateInput;
 
