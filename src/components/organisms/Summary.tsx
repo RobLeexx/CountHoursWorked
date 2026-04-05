@@ -1,14 +1,24 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { useAppContext } from '@/context';
 import type { CurrencyTotals } from '@/utils';
+import type { SummaryDisplayMode, SummaryMetricKey } from '@/types';
 import { useAppTheme } from '@/theme';
 import { formatCurrency, formatMonthName } from '@/utils';
 
 import { AppText } from '../atoms/AppText';
 
 type SummaryItemProps = {
+  hoursLabel: string;
+  earningsLabel: string;
+  hoursValue: string;
+  earningsValue: string;
+  defaultDisplayMode: SummaryDisplayMode;
+};
+
+type SummaryItemConfig = {
+  key: SummaryMetricKey;
   hoursLabel: string;
   earningsLabel: string;
   hoursValue: string;
@@ -41,32 +51,46 @@ function formatHours(value: number) {
   return Number(value.toFixed(2)).toString();
 }
 
-function SummaryItem({ hoursLabel, earningsLabel, hoursValue, earningsValue }: SummaryItemProps) {
+function SummaryItem({
+  hoursLabel,
+  earningsLabel,
+  hoursValue,
+  earningsValue,
+  defaultDisplayMode,
+}: SummaryItemProps) {
   const theme = useAppTheme();
-  const [showEarnings, setShowEarnings] = useState(false);
+  const [displayMode, setDisplayMode] = useState<SummaryDisplayMode>(defaultDisplayMode);
+  const showEarnings = displayMode === 'earnings';
   const label = showEarnings ? earningsLabel : hoursLabel;
   const value = showEarnings ? earningsValue : hoursValue;
 
+  useEffect(() => {
+    setDisplayMode(defaultDisplayMode);
+  }, [defaultDisplayMode]);
+
   return (
-    <Pressable
-      accessibilityRole="button"
-      onPress={() => setShowEarnings((currentValue) => !currentValue)}
-      style={({ pressed }) => [
+    <View
+      style={[
         styles.item,
         {
           backgroundColor: theme.colors.surface,
           borderColor: theme.colors.border,
-          opacity: pressed ? 0.9 : 1,
         },
       ]}
     >
-      <AppText variant="bodySmall" color="muted">
-        {label}
-      </AppText>
-      <AppText variant="title" weight="bold">
-        {value}
-      </AppText>
-    </Pressable>
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => setDisplayMode((currentValue) => (currentValue === 'hours' ? 'earnings' : 'hours'))}
+        style={({ pressed }) => [styles.itemContent, { opacity: pressed ? 0.9 : 1 }]}
+      >
+        <AppText variant="bodySmall" color="muted">
+          {label}
+        </AppText>
+        <AppText variant="title" weight="bold">
+          {value}
+        </AppText>
+      </Pressable>
+    </View>
   );
 }
 
@@ -81,9 +105,9 @@ export function Summary({
   monthlyProjectionEarnings,
   projectionMonth,
 }: SummaryProps) {
-  const { locale, t } = useAppContext();
+  const { locale, summaryDisplayPreferences, summaryDisplayPreset, t } = useAppContext();
   const projectionMonthName = formatMonthName(projectionMonth, locale);
-  const items = useMemo(
+  const items = useMemo<SummaryItemConfig[]>(
     () => [
       {
         key: 'today',
@@ -128,6 +152,17 @@ export function Summary({
       weeklyHours,
     ],
   );
+  const resolvedDefaultDisplayMode = (itemKey: SummaryMetricKey): SummaryDisplayMode => {
+    if (summaryDisplayPreset === 'hours') {
+      return 'hours';
+    }
+
+    if (summaryDisplayPreset === 'earnings') {
+      return 'earnings';
+    }
+
+    return summaryDisplayPreferences[itemKey];
+  };
 
   return (
     <View style={styles.grid}>
@@ -138,6 +173,7 @@ export function Summary({
           earningsLabel={item.earningsLabel}
           hoursValue={item.hoursValue}
           earningsValue={item.earningsValue}
+          defaultDisplayMode={resolvedDefaultDisplayMode(item.key)}
         />
       ))}
     </View>
@@ -155,7 +191,9 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     borderWidth: 1,
     flexBasis: '48.5%',
-    gap: 6,
     padding: 16,
+  },
+  itemContent: {
+    gap: 6,
   },
 });

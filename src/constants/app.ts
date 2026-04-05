@@ -8,6 +8,8 @@ export const STORAGE_KEYS = {
   themeMode: 'theme-mode',
   language: 'language',
   weekStart: 'week-start',
+  summaryDisplayPreset: 'summary-display-preset',
+  summaryDisplayPreferences: 'summary-display-preferences',
   projects: 'projects',
   workLogs: 'work-logs',
   holidayDates: 'holiday-dates',

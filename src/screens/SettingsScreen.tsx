@@ -4,7 +4,7 @@ import { Modal, Pressable, StyleSheet, View } from 'react-native';
 import { AppButton, AppText, MainLayout } from '@/components';
 import { useAppTheme } from '@/theme';
 import { useSettings } from '@/hooks';
-import type { AppLanguage, ThemeMode, WeekStart } from '@/types';
+import type { AppLanguage, SummaryDisplayMode, SummaryDisplayPreset, ThemeMode, WeekStart } from '@/types';
 
 type OptionSelectorProps<T extends string> = {
   label: string;
@@ -48,7 +48,20 @@ function OptionSelector<T extends string>({ label, value, options, onChange }: O
 
 export function SettingsScreen() {
   const theme = useAppTheme();
-  const { language, resetData, setLanguage, setThemeMode, setWeekStart, t, themeMode, weekStart } = useSettings();
+  const {
+    language,
+    resetData,
+    setLanguage,
+    setSummaryDisplayPreference,
+    setSummaryDisplayPreset,
+    setThemeMode,
+    setWeekStart,
+    summaryDisplayPreferences,
+    summaryDisplayPreset,
+    t,
+    themeMode,
+    weekStart,
+  } = useSettings();
   const [showResetModal, setShowResetModal] = useState(false);
 
   return (
@@ -90,6 +103,58 @@ export function SettingsScreen() {
             ]}
             onChange={setWeekStart}
           />
+          <OptionSelector<SummaryDisplayPreset>
+            label={t('settings.homeSummaryDefault')}
+            value={summaryDisplayPreset}
+            options={[
+              { label: t('settings.homeSummaryHours'), value: 'hours' },
+              { label: t('settings.homeSummaryEarnings'), value: 'earnings' },
+              { label: t('settings.homeSummaryCustom'), value: 'custom' },
+            ]}
+            onChange={setSummaryDisplayPreset}
+          />
+          {summaryDisplayPreset === 'custom' ? (
+            <View style={styles.group}>
+              <AppText weight="semibold">{t('settings.homeSummaryCustom')}</AppText>
+              <AppText color="muted">{t('settings.homeSummaryCustomDescription')}</AppText>
+              <OptionSelector<SummaryDisplayMode>
+                label={t('summary.hoursToday')}
+                value={summaryDisplayPreferences.today}
+                options={[
+                  { label: t('settings.homeSummaryHours'), value: 'hours' },
+                  { label: t('settings.homeSummaryEarnings'), value: 'earnings' },
+                ]}
+                onChange={(value) => setSummaryDisplayPreference('today', value)}
+              />
+              <OptionSelector<SummaryDisplayMode>
+                label={t('summary.hoursWeek')}
+                value={summaryDisplayPreferences.week}
+                options={[
+                  { label: t('settings.homeSummaryHours'), value: 'hours' },
+                  { label: t('settings.homeSummaryEarnings'), value: 'earnings' },
+                ]}
+                onChange={(value) => setSummaryDisplayPreference('week', value)}
+              />
+              <OptionSelector<SummaryDisplayMode>
+                label={t('summary.hoursMonth')}
+                value={summaryDisplayPreferences.month}
+                options={[
+                  { label: t('settings.homeSummaryHours'), value: 'hours' },
+                  { label: t('settings.homeSummaryEarnings'), value: 'earnings' },
+                ]}
+                onChange={(value) => setSummaryDisplayPreference('month', value)}
+              />
+              <OptionSelector<SummaryDisplayMode>
+                label={t('summary.monthProjectionHours', { month: t('settings.thisMonth') })}
+                value={summaryDisplayPreferences.projection}
+                options={[
+                  { label: t('settings.homeSummaryHours'), value: 'hours' },
+                  { label: t('settings.homeSummaryEarnings'), value: 'earnings' },
+                ]}
+                onChange={(value) => setSummaryDisplayPreference('projection', value)}
+              />
+            </View>
+          ) : null}
           <View style={styles.group}>
             <AppText weight="semibold">{t('settings.resetData')}</AppText>
             <AppText color="muted">{t('settings.resetDescription')}</AppText>

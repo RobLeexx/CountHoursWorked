@@ -8,6 +8,10 @@ import type {
   CreateProjectInput,
   CreateWorkLogInput,
   Project,
+  SummaryDisplayMode,
+  SummaryDisplayPreferences,
+  SummaryMetricKey,
+  SummaryDisplayPreset,
   ThemeMode,
   UpdateProjectInput,
   UpdateWorkLogInput,
@@ -27,6 +31,10 @@ type AppContextValue = {
   setLanguage: (value: AppLanguage) => void;
   weekStart: WeekStart;
   setWeekStart: (value: WeekStart) => void;
+  summaryDisplayPreset: SummaryDisplayPreset;
+  setSummaryDisplayPreset: (value: SummaryDisplayPreset) => void;
+  summaryDisplayPreferences: SummaryDisplayPreferences;
+  setSummaryDisplayPreference: (key: SummaryMetricKey, value: SummaryDisplayMode) => void;
   locale: string;
   t: (key: string, params?: Record<string, string | number>) => string;
   projects: Project[];
@@ -50,6 +58,13 @@ const initialProjects: Project[] = [];
 const initialWorkLogs: WorkLog[] = [];
 const initialHolidayDates: string[] = [];
 const DEFAULT_PROJECT_CURRENCY = 'EUR';
+const DEFAULT_SUMMARY_DISPLAY_PREFERENCES: SummaryDisplayPreferences = {
+  today: 'hours',
+  week: 'hours',
+  month: 'hours',
+  projection: 'hours',
+};
+const DEFAULT_SUMMARY_DISPLAY_PRESET: SummaryDisplayPreset = 'hours';
 
 function normalizeWeeklyEstimation(weeklyEstimation?: Partial<WeeklyEstimation>) {
   if (!weeklyEstimation) {
@@ -82,12 +97,27 @@ function normalizeProject(project: Partial<Project>): Project {
   };
 }
 
+function normalizeSummaryDisplayPreferences(
+  preferences?: Partial<Record<SummaryMetricKey, SummaryDisplayMode>>,
+): SummaryDisplayPreferences {
+  return {
+    today: preferences?.today === 'earnings' ? 'earnings' : 'hours',
+    week: preferences?.week === 'earnings' ? 'earnings' : 'hours',
+    month: preferences?.month === 'earnings' ? 'earnings' : 'hours',
+    projection: preferences?.projection === 'earnings' ? 'earnings' : 'hours',
+  };
+}
+
 export function AppProvider({ children }: PropsWithChildren) {
   const [isHydrated, setIsHydrated] = useState(false);
   const [isHeaderCompact, setHeaderCompact] = useState(false);
   const [themeMode, setThemeMode] = useState<ThemeMode>('dark');
   const [language, setLanguage] = useState<AppLanguage>('en');
   const [weekStart, setWeekStart] = useState<WeekStart>('monday');
+  const [summaryDisplayPreset, setSummaryDisplayPreset] = useState<SummaryDisplayPreset>(DEFAULT_SUMMARY_DISPLAY_PRESET);
+  const [summaryDisplayPreferences, setSummaryDisplayPreferences] = useState<SummaryDisplayPreferences>(
+    DEFAULT_SUMMARY_DISPLAY_PREFERENCES,
+  );
   const [projects, setProjects] = useState<Project[]>(initialProjects);
   const [workLogs, setWorkLogs] = useState<WorkLog[]>(initialWorkLogs);
   const [holidayDates, setHolidayDates] = useState<string[]>(initialHolidayDates);
@@ -99,6 +129,8 @@ export function AppProvider({ children }: PropsWithChildren) {
           storedThemeMode,
           storedLanguage,
           storedWeekStart,
+          storedSummaryDisplayPreset,
+          storedSummaryDisplayPreferences,
           storedProjects,
           storedWorkLogs,
           storedHolidayDates,
@@ -106,6 +138,8 @@ export function AppProvider({ children }: PropsWithChildren) {
           AsyncStorage.getItem(STORAGE_KEYS.themeMode),
           AsyncStorage.getItem(STORAGE_KEYS.language),
           AsyncStorage.getItem(STORAGE_KEYS.weekStart),
+          AsyncStorage.getItem(STORAGE_KEYS.summaryDisplayPreset),
+          AsyncStorage.getItem(STORAGE_KEYS.summaryDisplayPreferences),
           AsyncStorage.getItem(STORAGE_KEYS.projects),
           AsyncStorage.getItem(STORAGE_KEYS.workLogs),
           AsyncStorage.getItem(STORAGE_KEYS.holidayDates),
@@ -121,6 +155,18 @@ export function AppProvider({ children }: PropsWithChildren) {
 
         if (storedWeekStart === 'monday' || storedWeekStart === 'sunday') {
           setWeekStart(storedWeekStart);
+        }
+
+        if (storedSummaryDisplayPreset === 'hours' || storedSummaryDisplayPreset === 'earnings' || storedSummaryDisplayPreset === 'custom') {
+          setSummaryDisplayPreset(storedSummaryDisplayPreset);
+        }
+
+        if (storedSummaryDisplayPreferences) {
+          setSummaryDisplayPreferences(
+            normalizeSummaryDisplayPreferences(
+              JSON.parse(storedSummaryDisplayPreferences) as Partial<Record<SummaryMetricKey, SummaryDisplayMode>>,
+            ),
+          );
         }
 
         if (storedProjects) {
@@ -173,6 +219,22 @@ export function AppProvider({ children }: PropsWithChildren) {
       return;
     }
 
+    void AsyncStorage.setItem(STORAGE_KEYS.summaryDisplayPreset, summaryDisplayPreset);
+  }, [isHydrated, summaryDisplayPreset]);
+
+  useEffect(() => {
+    if (!isHydrated) {
+      return;
+    }
+
+    void AsyncStorage.setItem(STORAGE_KEYS.summaryDisplayPreferences, JSON.stringify(summaryDisplayPreferences));
+  }, [isHydrated, summaryDisplayPreferences]);
+
+  useEffect(() => {
+    if (!isHydrated) {
+      return;
+    }
+
     void AsyncStorage.setItem(STORAGE_KEYS.projects, JSON.stringify(projects));
   }, [isHydrated, projects]);
 
@@ -208,6 +270,15 @@ export function AppProvider({ children }: PropsWithChildren) {
       setLanguage,
       weekStart,
       setWeekStart,
+      summaryDisplayPreset,
+      setSummaryDisplayPreset,
+      summaryDisplayPreferences,
+      setSummaryDisplayPreference: (key, value) => {
+        setSummaryDisplayPreferences((currentPreferences) => ({
+          ...currentPreferences,
+          [key]: value,
+        }));
+      },
       locale,
       t: (key, params) => translate(language, key, params),
       projects,
@@ -314,7 +385,19 @@ export function AppProvider({ children }: PropsWithChildren) {
         setHolidayDates([]);
       },
     }),
-    [holidayDates, isHeaderCompact, isHydrated, language, locale, projects, themeMode, weekStart, workLogs],
+    [
+      holidayDates,
+      isHeaderCompact,
+      isHydrated,
+      language,
+      locale,
+      projects,
+      summaryDisplayPreset,
+      summaryDisplayPreferences,
+      themeMode,
+      weekStart,
+      workLogs,
+    ],
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
