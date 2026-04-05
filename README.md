@@ -1,5 +1,5 @@
-## WorkaHoric
-# Count Hours Worked
+# WorkaHoric
+## Count Hours Worked
 
 A clean React Native starter built with Expo, Expo Router, and TypeScript.
 

@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "Count Hours Worked",
-    "slug": "count-hours-worked",
-    "scheme": "counthoursworked",
+    "name": "WorkaHoric",
+    "slug": "workaHoric",
+    "scheme": "workahoric",
     "version": "1.0.0",
     "icon": "./src/assets/icons/icon2.png",
     "orientation": "portrait",
@@ -19,7 +19,7 @@
     },
     "android": {
       "edgeToEdgeEnabled": true,
-      "package": "com.sergio.counthoursworked"
+      "package": "com.roblee.workahoric"
     },
     "web": {
       "bundler": "metro",

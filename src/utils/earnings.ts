@@ -76,30 +76,41 @@ export function calculateProjectMonthlyProjection(
     return 0;
   }
 
+  const currentDay = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate());
   const monthStart = new Date(baseDate.getFullYear(), baseDate.getMonth(), 1);
   const monthEnd = new Date(baseDate.getFullYear(), baseDate.getMonth() + 1, 0);
+  const projectionStart = currentDay > monthStart ? currentDay : monthStart;
+  const holidayDateSet = new Set(holidayDates);
+  const loggedHoursByDate = workLogs.reduce<Record<string, number>>((totals, log) => {
+    if (log.projectId !== project.id) {
+      return totals;
+    }
+
+    return {
+      ...totals,
+      [log.date]: (totals[log.date] ?? 0) + log.hoursWorked,
+    };
+  }, {});
   let total = 0;
 
-  for (
-    let cursor = monthStart;
-    cursor <= monthEnd;
-    cursor = addDays(cursor, 1)
-  ) {
+  if (projectionStart > monthEnd) {
+    return 0;
+  }
+
+  for (let cursor = projectionStart; cursor <= monthEnd; cursor = addDays(cursor, 1)) {
     const dateKey = toDateKey(cursor);
 
     if (dateKey < project.startDate) {
       continue;
     }
 
-    if (holidayDates.includes(dateKey)) {
+    if (holidayDateSet.has(dateKey)) {
       continue;
     }
 
     const estimationKey = WEEKDAY_ESTIMATION_KEYS[cursor.getDay()];
     const estimatedHours = project.weeklyEstimation[estimationKey] ?? 0;
-    const loggedHours = workLogs
-      .filter((log) => log.projectId === project.id && log.date === dateKey)
-      .reduce((sum, log) => sum + log.hoursWorked, 0);
+    const loggedHours = loggedHoursByDate[dateKey] ?? 0;
     const remainingHours = Math.max(estimatedHours - loggedHours, 0);
 
     if (remainingHours <= 0) {
