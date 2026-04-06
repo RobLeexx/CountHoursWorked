@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { Image, Linking, Modal, Pressable, StyleSheet, View } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 
@@ -171,6 +171,21 @@ function buildPaymentRule(values: PaymentRuleFormValues): PaymentRule | undefine
   }
 }
 
+function getProjectFormDraft(values: ProjectFormValues) {
+  return {
+    name: values.name,
+    hourlyRate: values.hourlyRate,
+    currency: values.currency,
+    contractType: values.contractType,
+    startDate: values.startDate,
+    color: values.color ?? null,
+    paymentRuleValues: toPaymentRuleFormValues(values.paymentRule, values.startDate),
+    isEstimationOpen: Boolean(values.weeklyEstimation),
+    weeklyEstimation: toWeeklyEstimationState(values.weeklyEstimation),
+    contractFile: values.contractFile ?? null,
+  };
+}
+
 type ContractTypeSelectorProps = {
   value: ContractType;
   onChange: (value: ContractType) => void;
@@ -195,6 +210,12 @@ type ProjectFormProps = {
   onSubmit: (values: CreateProjectInput | UpdateProjectInput) => void;
   onCancel?: () => void;
   embedded?: boolean;
+  onDirtyChange?: (isDirty: boolean) => void;
+};
+
+export type ProjectFormHandle = {
+  hasUnsavedChanges: () => boolean;
+  submit: () => boolean;
 };
 
 export type ProjectsManagerProps = {
@@ -305,7 +326,10 @@ async function pickContractFile() {
   } satisfies ContractFile;
 }
 
-function ProjectForm({ title, submitLabel, initialValues, onSubmit, onCancel, embedded = false }: ProjectFormProps) {
+const ProjectForm = forwardRef<ProjectFormHandle, ProjectFormProps>(function ProjectForm(
+  { title, submitLabel, initialValues, onSubmit, onCancel, embedded = false, onDirtyChange },
+  ref,
+) {
   const { locale, t } = useAppContext();
   const theme = useAppTheme();
   const [name, setName] = useState(initialValues.name);
@@ -323,6 +347,7 @@ function ProjectForm({ title, submitLabel, initialValues, onSubmit, onCancel, em
     toWeeklyEstimationState(initialValues.weeklyEstimation),
   );
   const [contractFile, setContractFile] = useState<ContractFile | undefined>(initialValues.contractFile);
+  const initialDraft = getProjectFormDraft(initialValues);
 
   useEffect(() => {
     setName(initialValues.name);
@@ -361,6 +386,72 @@ function ProjectForm({ title, submitLabel, initialValues, onSubmit, onCancel, em
   const paymentRule = buildPaymentRule(paymentRuleValues);
   const canSubmit = Boolean(name.trim()) && parsedRate !== null && parsedRate > 0 && Boolean(startDate) && Boolean(paymentRule);
   const selectedColorOption = PROJECT_COLOR_PRESETS.find((option) => option.value === selectedColor);
+  const currentDraft = useMemo(
+    () => ({
+      name,
+      hourlyRate,
+      currency,
+      contractType,
+      startDate,
+      color: selectedColor,
+      paymentRuleValues,
+      isEstimationOpen,
+      weeklyEstimation,
+      contractFile: contractFile ?? null,
+    }),
+    [contractFile, contractType, currency, hourlyRate, isEstimationOpen, name, paymentRuleValues, selectedColor, startDate, weeklyEstimation],
+  );
+  const isDirty = useMemo(
+    () => JSON.stringify(initialDraft) !== JSON.stringify(currentDraft),
+    [currentDraft, initialDraft],
+  );
+
+  useEffect(() => {
+    onDirtyChange?.(isDirty);
+  }, [isDirty, onDirtyChange]);
+
+  const submitForm = useCallback(() => {
+    if (!canSubmit || parsedRate === null) {
+      return false;
+    }
+
+    const payload = {
+      name,
+      hourlyRate: parsedRate,
+      currency,
+      contractType,
+      startDate,
+      color: selectedColor,
+      paymentRule,
+      weeklyEstimation: hasConfiguredEstimation ? parsedWeeklyEstimation : undefined,
+      contractFile,
+    };
+
+    onSubmit(payload);
+    return true;
+  }, [
+    canSubmit,
+    contractFile,
+    contractType,
+    currency,
+    hasConfiguredEstimation,
+    name,
+    onSubmit,
+    parsedRate,
+    parsedWeeklyEstimation,
+    paymentRule,
+    selectedColor,
+    startDate,
+  ]);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      hasUnsavedChanges: () => isDirty,
+      submit: submitForm,
+    }),
+    [isDirty, submitForm],
+  );
 
   return (
     <>
@@ -686,23 +777,7 @@ function ProjectForm({ title, submitLabel, initialValues, onSubmit, onCancel, em
           {onCancel ? <AppButton title={t('common.cancel')} onPress={onCancel} variant="secondary" fullWidth={false} /> : null}
           <AppButton
             title={submitLabel}
-            onPress={() => {
-              if (canSubmit && parsedRate !== null) {
-                const payload = {
-                  name,
-                  hourlyRate: parsedRate,
-                  currency,
-                  contractType,
-                  startDate,
-                  color: selectedColor,
-                  paymentRule,
-                  weeklyEstimation: hasConfiguredEstimation ? parsedWeeklyEstimation : undefined,
-                  contractFile,
-                };
-
-                onSubmit(payload);
-              }
-            }}
+            onPress={submitForm}
             disabled={!canSubmit}
             fullWidth={false}
           />
@@ -777,7 +852,7 @@ function ProjectForm({ title, submitLabel, initialValues, onSubmit, onCancel, em
       </Modal>
     </>
   );
-}
+});
 
 export function ProjectsManager({
   projects,
@@ -787,13 +862,18 @@ export function ProjectsManager({
   defaultOpen = false,
   showToggle = true,
 }: ProjectsManagerProps) {
-  const { locale, t } = useAppContext();
+  const { locale, showToast, t } = useAppContext();
   const theme = useAppTheme();
   const isFlatLayout = !showToggle;
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const [isCreateOpen, setCreateOpen] = useState(false);
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
   const [projectPendingDelete, setProjectPendingDelete] = useState<Project | null>(null);
+  const [isUnsavedChangesModalOpen, setUnsavedChangesModalOpen] = useState(false);
+  const createFormRef = useRef<ProjectFormHandle>(null);
+  const editFormRef = useRef<ProjectFormHandle>(null);
+  const unsavedSaveActionRef = useRef<(() => boolean) | null>(null);
+  const unsavedDiscardActionRef = useRef<(() => void) | null>(null);
   const editingProject = useMemo(
     () => projects.find((project) => project.id === editingProjectId),
     [editingProjectId, projects],
@@ -836,12 +916,129 @@ export function ProjectsManager({
     setCreateOpen(projects.length === 0);
   }, [projects.length]);
 
+  const openUnsavedChangesModal = useCallback((saveAction: () => boolean, discardAction: () => void) => {
+    unsavedSaveActionRef.current = saveAction;
+    unsavedDiscardActionRef.current = discardAction;
+    setUnsavedChangesModalOpen(true);
+  }, []);
+
+  const closeUnsavedChangesModal = useCallback(() => {
+    setUnsavedChangesModalOpen(false);
+    unsavedSaveActionRef.current = null;
+    unsavedDiscardActionRef.current = null;
+  }, []);
+
+  const confirmSaveChanges = useCallback(() => {
+    setUnsavedChangesModalOpen(false);
+
+    const didSave = unsavedSaveActionRef.current?.() ?? false;
+
+    unsavedSaveActionRef.current = null;
+    unsavedDiscardActionRef.current = null;
+
+    if (!didSave) {
+      showToast({
+        type: 'warning',
+        title: t('feedback.unsavedChangesTitle'),
+        message: t('feedback.completeFieldsBeforeSaving'),
+      });
+    }
+  }, [showToast, t]);
+
+  const confirmDiscardChanges = useCallback(() => {
+    setUnsavedChangesModalOpen(false);
+    unsavedDiscardActionRef.current?.();
+    unsavedSaveActionRef.current = null;
+    unsavedDiscardActionRef.current = null;
+  }, []);
+
+  const requestCreateAccordionToggle = useCallback(() => {
+    if (!isCreateOpen) {
+      setCreateOpen(true);
+      return;
+    }
+
+    if (createFormRef.current?.hasUnsavedChanges()) {
+      openUnsavedChangesModal(
+        () => createFormRef.current?.submit() ?? false,
+        () => setCreateOpen(false),
+      );
+      return;
+    }
+
+    setCreateOpen(false);
+  }, [isCreateOpen, openUnsavedChangesModal]);
+
+  const requestEditingProjectChange = useCallback(
+    (nextProjectId: string | null) => {
+      if (editFormRef.current?.hasUnsavedChanges()) {
+        openUnsavedChangesModal(
+          () => {
+            const didSave = editFormRef.current?.submit() ?? false;
+
+            if (didSave) {
+              setEditingProjectId(nextProjectId);
+            }
+
+            return didSave;
+          },
+          () => setEditingProjectId(nextProjectId),
+        );
+        return;
+      }
+
+      setEditingProjectId(nextProjectId);
+    },
+    [openUnsavedChangesModal],
+  );
+
+  const requestSectionToggle = useCallback(() => {
+    if (!isOpen) {
+      setIsOpen(true);
+      return;
+    }
+
+    if (editFormRef.current?.hasUnsavedChanges()) {
+      openUnsavedChangesModal(
+        () => {
+          const didSave = editFormRef.current?.submit() ?? false;
+
+          if (didSave) {
+            setIsOpen(false);
+          }
+
+          return didSave;
+        },
+        () => setIsOpen(false),
+      );
+      return;
+    }
+
+    if (createFormRef.current?.hasUnsavedChanges()) {
+      openUnsavedChangesModal(
+        () => {
+          const didSave = createFormRef.current?.submit() ?? false;
+
+          if (didSave) {
+            setIsOpen(false);
+          }
+
+          return didSave;
+        },
+        () => setIsOpen(false),
+      );
+      return;
+    }
+
+    setIsOpen(false);
+  }, [isOpen, openUnsavedChangesModal]);
+
   return (
     <View style={styles.wrapper}>
       {showToggle ? (
         <AppButton
           title={isOpen ? t('projects.hide') : t('projects.manage')}
-          onPress={() => setIsOpen((currentValue) => !currentValue)}
+          onPress={requestSectionToggle}
           variant="secondary"
           fullWidth={false}
         />
@@ -897,7 +1094,7 @@ export function ProjectsManager({
                     <View style={styles.projectButtons}>
                       <AppButton
                         title={isEditing ? t('common.close') : t('common.edit')}
-                        onPress={() => setEditingProjectId(isEditing ? null : project.id)}
+                        onPress={() => requestEditingProjectChange(isEditing ? null : project.id)}
                         variant="secondary"
                         fullWidth={false}
                       />
@@ -914,15 +1111,21 @@ export function ProjectsManager({
 
                   {isEditing && editingProject && editingProjectInitialValues ? (
                     <ProjectForm
+                      ref={editFormRef}
                       key={editingProject.id}
                       title={t('projects.editTitle')}
                       submitLabel={t('projects.updateInformation')}
                       initialValues={editingProjectInitialValues}
                       onSubmit={(values) => {
                         onUpdateProject(project.id, values as UpdateProjectInput);
+                        showToast({
+                          type: 'info',
+                          title: t('feedback.successTitle'),
+                          message: t('feedback.projectUpdated', { name: project.name }),
+                        });
                         setEditingProjectId(null);
                       }}
-                      onCancel={() => setEditingProjectId(null)}
+                      onCancel={() => requestEditingProjectChange(null)}
                     />
                   ) : null}
                 </View>
@@ -939,7 +1142,7 @@ export function ProjectsManager({
               },
             ]}
           >
-            <Pressable onPress={() => setCreateOpen((currentValue) => !currentValue)} style={styles.accordionToggle}>
+            <Pressable onPress={requestCreateAccordionToggle} style={styles.accordionToggle}>
               <View style={styles.accordionText}>
                 <AppText weight="bold" style={styles.accordionTitle}>
                   {t('projects.createTitle')}
@@ -955,6 +1158,7 @@ export function ProjectsManager({
 
             {isCreateOpen ? (
               <ProjectForm
+                ref={createFormRef}
                 title={''}
                 submitLabel={t('projects.saveProject')}
                 embedded
@@ -963,6 +1167,11 @@ export function ProjectsManager({
                   const project = onCreateProject(values as CreateProjectInput);
 
                   if (project) {
+                    showToast({
+                      type: 'success',
+                      title: t('feedback.successTitle'),
+                      message: t('feedback.projectCreated', { name: project.name }),
+                    });
                     setEditingProjectId(null);
                     setCreateOpen(false);
                   }
@@ -1013,9 +1222,57 @@ export function ProjectsManager({
                     }
 
                     onDeleteProject(projectPendingDelete.id);
+                    showToast({
+                      type: 'danger',
+                      title: t('feedback.successTitle'),
+                      message: t('feedback.projectDeleted', { name: projectPendingDelete.name }),
+                    });
                     setProjectPendingDelete(null);
                   }
                 }}
+                fullWidth={false}
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        animationType="fade"
+        transparent
+        visible={isUnsavedChangesModalOpen}
+        onRequestClose={closeUnsavedChangesModal}
+      >
+        <View style={styles.modalOverlay}>
+          <View
+            style={[
+              styles.modalCard,
+              {
+                backgroundColor: theme.colors.surface,
+                borderColor: theme.colors.border,
+              },
+            ]}
+          >
+            <AppText variant="title" weight="bold">
+              {t('feedback.unsavedChangesTitle')}
+            </AppText>
+            <AppText color="muted">{t('feedback.unsavedChangesBody')}</AppText>
+            <View style={styles.modalActions}>
+              <AppButton
+                title={t('common.cancel')}
+                onPress={closeUnsavedChangesModal}
+                variant="secondary"
+                fullWidth={false}
+              />
+              <AppButton
+                title={t('common.discard')}
+                onPress={confirmDiscardChanges}
+                variant="ghost"
+                fullWidth={false}
+              />
+              <AppButton
+                title={t('common.saveChanges')}
+                onPress={confirmSaveChanges}
                 fullWidth={false}
               />
             </View>

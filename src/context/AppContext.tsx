@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createContext, useContext, useEffect, useMemo, useState, type PropsWithChildren } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type PropsWithChildren } from 'react';
 
 import { translate } from '@/i18n';
 import { STORAGE_KEYS } from '@/constants';
@@ -24,6 +24,15 @@ import type {
   WorkLog,
 } from '@/types';
 
+export type ToastType = 'success' | 'info' | 'warning' | 'danger';
+
+export type AppToast = {
+  id: number;
+  message: string;
+  title?: string;
+  type: ToastType;
+};
+
 type AppContextValue = {
   isHydrated: boolean;
   isHeaderCompact: boolean;
@@ -44,6 +53,9 @@ type AppContextValue = {
   projects: Project[];
   workLogs: WorkLog[];
   holidayDates: string[];
+  activeToast: AppToast | null;
+  showToast: (toast: Omit<AppToast, 'id'>) => void;
+  dismissToast: () => void;
   toggleHoliday: (date: string) => void;
   createProject: (input: CreateProjectInput) => Project | null;
   updateProject: (id: string, updates: UpdateProjectInput) => void;
@@ -223,6 +235,7 @@ export function AppProvider({ children }: PropsWithChildren) {
   const [projects, setProjects] = useState<Project[]>(initialProjects);
   const [workLogs, setWorkLogs] = useState<WorkLog[]>(initialWorkLogs);
   const [holidayDates, setHolidayDates] = useState<string[]>(initialHolidayDates);
+  const [activeToast, setActiveToast] = useState<AppToast | null>(null);
 
   useEffect(() => {
     const hydrate = async () => {
@@ -357,6 +370,15 @@ export function AppProvider({ children }: PropsWithChildren) {
   }, [holidayDates, isHydrated]);
 
   const locale = language === 'es' ? 'es-ES' : 'en-IE';
+  const showToast = useCallback((toast: Omit<AppToast, 'id'>) => {
+    setActiveToast({
+      id: Date.now(),
+      ...toast,
+    });
+  }, []);
+  const dismissToast = useCallback(() => {
+    setActiveToast(null);
+  }, []);
 
   const value = useMemo<AppContextValue>(
     () => ({
@@ -386,6 +408,9 @@ export function AppProvider({ children }: PropsWithChildren) {
       projects,
       workLogs,
       holidayDates,
+      activeToast,
+      showToast,
+      dismissToast,
       toggleHoliday: (date) => {
         setHolidayDates((currentDates) =>
           currentDates.includes(date)
@@ -501,11 +526,14 @@ export function AppProvider({ children }: PropsWithChildren) {
     }),
     [
       holidayDates,
+      activeToast,
+      dismissToast,
       isHeaderCompact,
       isHydrated,
       language,
       locale,
       projects,
+      showToast,
       summaryDisplayPreset,
       summaryDisplayPreferences,
       themeMode,

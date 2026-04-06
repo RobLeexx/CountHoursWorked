@@ -1,6 +1,7 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 
+import { ToastHost } from '@/components';
 import { AppProvider } from '@/context';
 import { useAppTheme } from '@/theme';
 
@@ -21,6 +22,7 @@ function RootNavigator() {
         <Stack.Screen name="(main)" />
         <Stack.Screen name="+not-found" />
       </Stack>
+      <ToastHost />
     </>
   );
 }
@@ -32,4 +34,3 @@ export default function RootLayout() {
     </AppProvider>
   );
 }
-

@@ -11,7 +11,7 @@ const SHEET_ANIMATION_DURATION_MS = 220;
 const SHEET_HIDDEN_OFFSET = 520;
 
 export function HomeScreen() {
-  const { holidayDates, isHydrated, t, toggleHoliday } = useAppContext();
+  const { holidayDates, isHydrated, showToast, t, toggleHoliday } = useAppContext();
   const { projects } = useProjects();
   const theme = useAppTheme();
   const today = useMemo(() => new Date(), []);
@@ -108,6 +108,60 @@ export function HomeScreen() {
     setVisibleMonth(nextMonth);
     setSelectedDate(toDateKey(nextMonth));
   }, [visibleMonth]);
+  const handleSaveHours = useCallback(
+    (projectId: string, hoursWorked: number) => {
+      const project = projects.find((item) => item.id === projectId);
+      const existingLog = dayLogs.find((log) => log.projectId === projectId);
+
+      setHoursForProject(projectId, hoursWorked);
+
+      if (!project) {
+        return;
+      }
+
+      showToast({
+        type: existingLog ? 'info' : 'success',
+        title: t('feedback.successTitle'),
+        message: existingLog
+          ? t('feedback.hoursUpdated', { name: project.name })
+          : t('feedback.hoursSaved', { name: project.name }),
+      });
+    },
+    [dayLogs, projects, setHoursForProject, showToast, t],
+  );
+  const handleClearHours = useCallback(
+    (projectId: string) => {
+      const project = projects.find((item) => item.id === projectId);
+      const existingLog = dayLogs.find((log) => log.projectId === projectId);
+
+      if (!existingLog) {
+        return;
+      }
+
+      clearHoursForProject(projectId);
+
+      if (!project) {
+        return;
+      }
+
+      showToast({
+        type: 'danger',
+        title: t('feedback.successTitle'),
+        message: t('feedback.hoursDeleted', { name: project.name }),
+      });
+    },
+    [clearHoursForProject, dayLogs, projects, showToast, t],
+  );
+  const handleToggleHoliday = useCallback(() => {
+    const willBecomeHoliday = !holidayDates.includes(selectedDate);
+
+    toggleHoliday(selectedDate);
+    showToast({
+      type: willBecomeHoliday ? 'warning' : 'info',
+      title: t('feedback.successTitle'),
+      message: willBecomeHoliday ? t('feedback.holidayAdded') : t('feedback.holidayRemoved'),
+    });
+  }, [holidayDates, selectedDate, showToast, t, toggleHoliday]);
 
   const sheetTranslateY = sheetAnimation.interpolate({
     inputRange: [0, 1],
@@ -181,9 +235,9 @@ export function HomeScreen() {
               isHoliday={holidayDates.includes(selectedDate)}
               selectedProjectId={selectedProjectId}
               onSelectProject={setSelectedProjectId}
-              onSaveHours={setHoursForProject}
-              onClearHours={clearHoursForProject}
-              onToggleHoliday={() => toggleHoliday(selectedDate)}
+              onSaveHours={handleSaveHours}
+              onClearHours={handleClearHours}
+              onToggleHoliday={handleToggleHoliday}
             />
             <View
               style={[
