@@ -9,8 +9,17 @@ function toSafeDate(dateInput: Date | string) {
   return typeof dateInput === 'string' ? fromDateKey(dateInput) : dateInput;
 }
 
-function isValidForProjectStart(project: Project, dateKey: string) {
+function isActiveProjectDate(project: Project, dateKey: string) {
   return !project.startDate || dateKey >= project.startDate;
+}
+
+function getMonthRange(dateInput: Date | string) {
+  const targetDate = toSafeDate(dateInput);
+
+  return {
+    monthStart: new Date(targetDate.getFullYear(), targetDate.getMonth(), 1),
+    monthEnd: new Date(targetDate.getFullYear(), targetDate.getMonth() + 1, 0),
+  };
 }
 
 function matchesOneTimeRule(rule: Extract<PaymentRule, { type: 'one_time' }>, dateKey: string) {
@@ -36,36 +45,40 @@ function matchesBiweeklyRule(rule: Extract<PaymentRule, { type: 'biweekly' }>, t
   return rule.paymentWeekday === undefined || targetDate.getDay() === rule.paymentWeekday;
 }
 
+function matchesPaymentRule(rule: PaymentRule, targetDate: Date, dateKey: string) {
+  switch (rule.type) {
+    case 'one_time':
+      return matchesOneTimeRule(rule, dateKey);
+    case 'monthly_fixed_day':
+      return matchesMonthlyFixedDayRule(rule, targetDate);
+    case 'weekly':
+      return matchesWeeklyRule(rule, targetDate);
+    case 'biweekly':
+      return matchesBiweeklyRule(rule, targetDate);
+    default:
+      return false;
+  }
+}
+
 export function isPaydayForProject(project: Project, dateInput: Date | string) {
-  if (!project.paymentRule) {
+  const { paymentRule } = project;
+
+  if (!paymentRule) {
     return false;
   }
 
   const targetDate = toSafeDate(dateInput);
   const dateKey = toDateKey(targetDate);
 
-  if (!isValidForProjectStart(project, dateKey)) {
+  if (!isActiveProjectDate(project, dateKey)) {
     return false;
   }
 
-  switch (project.paymentRule.type) {
-    case 'one_time':
-      return matchesOneTimeRule(project.paymentRule, dateKey);
-    case 'monthly_fixed_day':
-      return matchesMonthlyFixedDayRule(project.paymentRule, targetDate);
-    case 'weekly':
-      return matchesWeeklyRule(project.paymentRule, targetDate);
-    case 'biweekly':
-      return matchesBiweeklyRule(project.paymentRule, targetDate);
-    default:
-      return false;
-  }
+  return matchesPaymentRule(paymentRule, targetDate, dateKey);
 }
 
 export function getProjectPaydaysForMonth(project: Project, selectedMonth: Date | string) {
-  const monthDate = toSafeDate(selectedMonth);
-  const monthStart = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
-  const monthEnd = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0);
+  const { monthStart, monthEnd } = getMonthRange(selectedMonth);
   const paydays: string[] = [];
 
   for (let currentDate = monthStart; currentDate <= monthEnd; currentDate = addDays(currentDate, 1)) {

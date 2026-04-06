@@ -3,6 +3,7 @@ import type { CurrencyCode, HolidayLike, Project, WeekdayEstimationKey, WorkLog 
 import { addDays, fromDateKey, toDateKey } from './dateHelpers';
 
 export type CurrencyTotals = Partial<Record<CurrencyCode, number>>;
+type ProjectMap = Map<string, Project>;
 
 export function calculateDailyEarnings(log: WorkLog, project?: Project) {
   if (!project) {
@@ -12,28 +13,30 @@ export function calculateDailyEarnings(log: WorkLog, project?: Project) {
   return log.hoursWorked * project.hourlyRate;
 }
 
-export function calculateWeeklyTotal(logs: WorkLog[], projects: Project[]) {
-  return calculateLogsTotal(logs, projects);
+function createProjectMap(projects: Project[]): ProjectMap {
+  return new Map(projects.map((project) => [project.id, project]));
 }
 
-export function calculateMonthlyTotal(logs: WorkLog[], projects: Project[]) {
-  return calculateLogsTotal(logs, projects);
+function calculateLogsEarnings(logs: WorkLog[], projectMap: ProjectMap) {
+  return logs.reduce((total, log) => {
+    return total + calculateDailyEarnings(log, projectMap.get(log.projectId));
+  }, 0);
 }
 
 export function calculateHoursTotal(logs: WorkLog[]) {
   return logs.reduce((total, log) => total + log.hoursWorked, 0);
 }
 
-export function calculateLogsTotal(logs: WorkLog[], projects: Project[]) {
-  const projectMap = new Map(projects.map((project) => [project.id, project]));
+export function calculateWeeklyTotal(logs: WorkLog[], projects: Project[]) {
+  return calculateLogsEarnings(logs, createProjectMap(projects));
+}
 
-  return logs.reduce((total, log) => {
-    return total + calculateDailyEarnings(log, projectMap.get(log.projectId));
-  }, 0);
+export function calculateMonthlyTotal(logs: WorkLog[], projects: Project[]) {
+  return calculateLogsEarnings(logs, createProjectMap(projects));
 }
 
 export function calculateCurrencyTotals(logs: WorkLog[], projects: Project[]): CurrencyTotals {
-  const projectMap = new Map(projects.map((project) => [project.id, project]));
+  const projectMap = createProjectMap(projects);
 
   return logs.reduce<CurrencyTotals>((totals, log) => {
     const project = projectMap.get(log.projectId);
@@ -43,12 +46,8 @@ export function calculateCurrencyTotals(logs: WorkLog[], projects: Project[]): C
     }
 
     const earnings = calculateDailyEarnings(log, project);
-    const currentValue = totals[project.currency] ?? 0;
-
-    return {
-      ...totals,
-      [project.currency]: currentValue + earnings,
-    };
+    totals[project.currency] = (totals[project.currency] ?? 0) + earnings;
+    return totals;
   }, {});
 }
 
@@ -142,7 +141,9 @@ function buildLoggedHoursByProjectDate(
 }
 
 function mergeCurrencyTotals(...totalsList: CurrencyTotals[]) {
-  return totalsList.reduce<CurrencyTotals>((mergedTotals, totals) => {
+  const mergedTotals: CurrencyTotals = {};
+
+  totalsList.forEach((totals) => {
     Object.entries(totals).forEach(([currency, value]) => {
       if (typeof value !== 'number') {
         return;
@@ -150,22 +151,23 @@ function mergeCurrencyTotals(...totalsList: CurrencyTotals[]) {
 
       mergedTotals[currency as CurrencyCode] = (mergedTotals[currency as CurrencyCode] ?? 0) + value;
     });
+  });
 
-    return mergedTotals;
-  }, {});
+  return mergedTotals;
 }
 
 function roundCurrencyTotals(totals: CurrencyTotals) {
-  return Object.entries(totals).reduce<CurrencyTotals>((roundedTotals, [currency, value]) => {
+  const roundedTotals: CurrencyTotals = {};
+
+  Object.entries(totals).forEach(([currency, value]) => {
     if (typeof value !== 'number') {
-      return roundedTotals;
+      return;
     }
 
-    return {
-      ...roundedTotals,
-      [currency as CurrencyCode]: Number(value.toFixed(2)),
-    };
-  }, {});
+    roundedTotals[currency as CurrencyCode] = Number(value.toFixed(2));
+  });
+
+  return roundedTotals;
 }
 
 function roundProjectionLayer(layer: ProjectionLayerTotals): ProjectionLayerTotals {

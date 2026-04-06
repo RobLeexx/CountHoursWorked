@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, Pressable, StyleSheet, View } from 'react-native';
 
 import { AppButton, AppText, DayDetails, MainLayout, Summary, WorkCalendar } from '@/components';
@@ -32,18 +32,20 @@ export function HomeScreen() {
     weeklyEarningsByCurrency,
     monthlyEarningsByCurrency,
   } = useWorkLogs(selectedDate);
-  const monthlyProjection = calculateMonthlyProjection(projects, workLogs, holidayDates, visibleMonth);
+  const projectIds = useMemo(() => new Set(projects.map((project) => project.id)), [projects]);
+  const monthlyProjection = useMemo(
+    () => calculateMonthlyProjection(projects, workLogs, holidayDates, visibleMonth),
+    [holidayDates, projects, visibleMonth, workLogs],
+  );
 
-  const syncSelectedDate = (dateKey: string) => {
+  const syncSelectedDate = useCallback((dateKey: string) => {
     setSelectedDate(dateKey);
     const date = fromDateKey(dateKey);
     setVisibleMonth(new Date(date.getFullYear(), date.getMonth(), 1));
-  };
+  }, []);
 
-  const getPreferredProjectIdForDate = (dateKey: string) => {
-    const existingDayLog = workLogs.find(
-      (log) => log.date === dateKey && projects.some((project) => project.id === log.projectId),
-    );
+  const getPreferredProjectIdForDate = useCallback((dateKey: string) => {
+    const existingDayLog = workLogs.find((log) => log.date === dateKey && projectIds.has(log.projectId));
 
     if (existingDayLog) {
       return existingDayLog.projectId;
@@ -54,15 +56,15 @@ export function HomeScreen() {
     }
 
     return projects[0]?.id ?? '';
-  };
+  }, [projectIds, projects, selectedProjectId, workLogs]);
 
-  const openDayDetails = (dateKey: string) => {
+  const openDayDetails = useCallback((dateKey: string) => {
     syncSelectedDate(dateKey);
     setSelectedProjectId(getPreferredProjectIdForDate(dateKey));
     setDayDetailsMounted(true);
-  };
+  }, [getPreferredProjectIdForDate, syncSelectedDate]);
 
-  const closeDayDetails = () => {
+  const closeDayDetails = useCallback(() => {
     Animated.timing(sheetAnimation, {
       toValue: 0,
       duration: SHEET_ANIMATION_DURATION_MS,
@@ -73,7 +75,7 @@ export function HomeScreen() {
         setDayDetailsMounted(false);
       }
     });
-  };
+  }, [sheetAnimation]);
 
   useEffect(() => {
     if (!isDayDetailsMounted) {
@@ -100,11 +102,11 @@ export function HomeScreen() {
     }
   }, [projects, selectedProjectId]);
 
-  const changeMonth = (direction: 'previous' | 'next') => {
+  const changeMonth = useCallback((direction: 'previous' | 'next') => {
     const nextMonth = addMonths(visibleMonth, direction === 'previous' ? -1 : 1);
     setVisibleMonth(nextMonth);
     setSelectedDate(toDateKey(nextMonth));
-  };
+  }, [visibleMonth]);
 
   const sheetTranslateY = sheetAnimation.interpolate({
     inputRange: [0, 1],

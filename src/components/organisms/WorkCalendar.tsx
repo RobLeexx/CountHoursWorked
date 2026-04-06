@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { useAppContext } from '@/context';
@@ -32,31 +32,34 @@ export function WorkCalendar({
 }: WorkCalendarProps) {
   const { language, locale, t, weekStart } = useAppContext();
   const theme = useAppTheme();
-  const monthDays = getCurrentMonthDays(visibleMonth, weekStart);
-  const weekdayLabels = getWeekdayLabels(language, weekStart);
-  const loggedDates = new Set(workLogs.map((log) => log.date));
-  const holidayDateSet = new Set(holidayDates);
-  const todayKey = toDateKey(new Date());
+  const monthDays = useMemo(() => getCurrentMonthDays(visibleMonth, weekStart), [visibleMonth, weekStart]);
+  const weekdayLabels = useMemo(() => getWeekdayLabels(language, weekStart), [language, weekStart]);
+  const loggedDates = useMemo(() => new Set(workLogs.map((log) => log.date)), [workLogs]);
+  const holidayDateSet = useMemo(() => new Set(holidayDates), [holidayDates]);
+  const todayKey = useMemo(() => toDateKey(new Date()), []);
   const lastTapRef = useRef<{ dateKey: string; timestamp: number }>({
     dateKey: '',
     timestamp: 0,
   });
 
-  const handleDayPress = (dateKey: string) => {
-    const now = Date.now();
-    const isDoubleTap =
-      lastTapRef.current.dateKey === dateKey && now - lastTapRef.current.timestamp <= DOUBLE_TAP_DELAY_MS;
+  const handleDayPress = useCallback(
+    (dateKey: string) => {
+      const now = Date.now();
+      const isDoubleTap =
+        lastTapRef.current.dateKey === dateKey && now - lastTapRef.current.timestamp <= DOUBLE_TAP_DELAY_MS;
 
-    onSelectDate(dateKey);
+      onSelectDate(dateKey);
 
-    if (isDoubleTap) {
-      lastTapRef.current = { dateKey: '', timestamp: 0 };
-      onOpenDate(dateKey);
-      return;
-    }
+      if (isDoubleTap) {
+        lastTapRef.current = { dateKey: '', timestamp: 0 };
+        onOpenDate(dateKey);
+        return;
+      }
 
-    lastTapRef.current = { dateKey, timestamp: now };
-  };
+      lastTapRef.current = { dateKey, timestamp: now };
+    },
+    [onOpenDate, onSelectDate],
+  );
 
   return (
     <View

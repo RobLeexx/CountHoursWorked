@@ -71,6 +71,10 @@ type StoredProject = Partial<Project> & {
   payday?: string;
 };
 
+function roundToTwoDecimals(value: number) {
+  return Number(value.toFixed(2));
+}
+
 function normalizeWeeklyEstimation(weeklyEstimation?: Partial<WeeklyEstimation>) {
   if (!weeklyEstimation) {
     return undefined;
@@ -390,7 +394,7 @@ export function AppProvider({ children }: PropsWithChildren) {
         const newProject: Project = {
           id: createId('project'),
           name: normalizedName,
-          hourlyRate: Number(hourlyRate.toFixed(2)),
+          hourlyRate: roundToTwoDecimals(hourlyRate),
           currency,
           contractType,
           startDate: normalizedStartDate,
@@ -421,7 +425,7 @@ export function AppProvider({ children }: PropsWithChildren) {
               ...updates,
               hourlyRate:
                 typeof updates.hourlyRate === 'number'
-                  ? Number(updates.hourlyRate.toFixed(2))
+                  ? roundToTwoDecimals(updates.hourlyRate)
                   : project.hourlyRate,
               currency: updates.currency ?? project.currency,
               startDate: nextStartDate,
@@ -449,7 +453,7 @@ export function AppProvider({ children }: PropsWithChildren) {
           {
             id: createId('log'),
             date,
-            hoursWorked: Number(hoursWorked.toFixed(2)),
+            hoursWorked: roundToTwoDecimals(hoursWorked),
             projectId,
           },
         ]);
@@ -466,7 +470,7 @@ export function AppProvider({ children }: PropsWithChildren) {
               ...updates,
               hoursWorked:
                 typeof updates.hoursWorked === 'number'
-                  ? Number(updates.hoursWorked.toFixed(2))
+                  ? roundToTwoDecimals(updates.hoursWorked)
                   : log.hoursWorked,
             };
           }),

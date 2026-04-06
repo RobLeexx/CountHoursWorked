@@ -1,3 +1,5 @@
+import { useCallback, useMemo } from 'react';
+
 import { useAppContext } from '@/context';
 import {
   calculateCurrencyTotals,
@@ -12,25 +14,23 @@ const MAX_HOURS_PER_DAY = 24;
 
 export function useWorkLogs(selectedDateInput?: string | Date) {
   const { workLogs, projects, addWorkLog, updateWorkLog, deleteWorkLog, weekStart } = useAppContext();
-  const selectedDate = selectedDateInput
-    ? typeof selectedDateInput === 'string'
-      ? selectedDateInput
-      : toDateKey(selectedDateInput)
-    : toDateKey(new Date());
+  const selectedDate = useMemo(() => {
+    if (!selectedDateInput) {
+      return toDateKey(new Date());
+    }
 
-  const dayLogs = getLogsForDate(workLogs, selectedDate);
-  const weeklyLogs = getLogsForWeek(workLogs, selectedDate, weekStart);
-  const monthlyLogs = getLogsForMonth(workLogs, selectedDate);
-  const getLogForProject = (projectId: string) => dayLogs.find((log) => log.projectId === projectId);
+    return typeof selectedDateInput === 'string' ? selectedDateInput : toDateKey(selectedDateInput);
+  }, [selectedDateInput]);
 
-  return {
-    workLogs,
-    dayLogs,
-    addWorkLog,
-    updateWorkLog,
-    deleteWorkLog,
-    getLogForProject,
-    setHoursForProject: (projectId: string, hoursWorked: number) => {
+  const dayLogs = useMemo(() => getLogsForDate(workLogs, selectedDate), [selectedDate, workLogs]);
+  const weeklyLogs = useMemo(() => getLogsForWeek(workLogs, selectedDate, weekStart), [selectedDate, weekStart, workLogs]);
+  const monthlyLogs = useMemo(() => getLogsForMonth(workLogs, selectedDate), [selectedDate, workLogs]);
+  const getLogForProject = useCallback(
+    (projectId: string) => dayLogs.find((log) => log.projectId === projectId),
+    [dayLogs],
+  );
+  const setHoursForProject = useCallback(
+    (projectId: string, hoursWorked: number) => {
       const existingLog = getLogForProject(projectId);
       const otherProjectHours = dayLogs.reduce(
         (total, log) => (log.projectId === projectId ? total : total + log.hoursWorked),
@@ -48,13 +48,28 @@ export function useWorkLogs(selectedDateInput?: string | Date) {
 
       addWorkLog({ date: selectedDate, projectId, hoursWorked });
     },
-    clearHoursForProject: (projectId: string) => {
+    [addWorkLog, dayLogs, getLogForProject, selectedDate, updateWorkLog],
+  );
+  const clearHoursForProject = useCallback(
+    (projectId: string) => {
       const existingLog = getLogForProject(projectId);
 
       if (existingLog) {
         deleteWorkLog(existingLog.id);
       }
     },
+    [deleteWorkLog, getLogForProject],
+  );
+
+  return {
+    workLogs,
+    dayLogs,
+    addWorkLog,
+    updateWorkLog,
+    deleteWorkLog,
+    getLogForProject,
+    setHoursForProject,
+    clearHoursForProject,
     dailyHours: calculateHoursTotal(dayLogs),
     weeklyHours: calculateHoursTotal(weeklyLogs),
     monthlyHours: calculateHoursTotal(monthlyLogs),
