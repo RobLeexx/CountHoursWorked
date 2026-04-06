@@ -5,7 +5,7 @@ import { AppButton, AppText, DayDetails, MainLayout, Summary, WorkCalendar } fro
 import { useAppContext } from '@/context';
 import { useProjects, useWorkLogs } from '@/hooks';
 import { useAppTheme } from '@/theme';
-import { addMonths, calculateMonthlyProjection, fromDateKey, toDateKey } from '@/utils';
+import { addMonths, calculateMonthlyProjection, fromDateKey, getPaydayColorsForMonth, toDateKey } from '@/utils';
 
 const SHEET_ANIMATION_DURATION_MS = 220;
 const SHEET_HIDDEN_OFFSET = 520;
@@ -32,6 +32,7 @@ export function HomeScreen() {
     weeklyEarningsByCurrency,
     monthlyEarningsByCurrency,
   } = useWorkLogs(selectedDate);
+  const paydayColors = useMemo(() => getPaydayColorsForMonth(projects, visibleMonth), [projects, visibleMonth]);
   const projectIds = useMemo(() => new Set(projects.map((project) => project.id)), [projects]);
   const monthlyProjection = useMemo(
     () => calculateMonthlyProjection(projects, workLogs, holidayDates, visibleMonth),
@@ -122,6 +123,7 @@ export function HomeScreen() {
           selectedDate={selectedDate}
           visibleMonth={visibleMonth}
           holidayDates={holidayDates}
+          paydayColors={paydayColors}
           workLogs={workLogs}
           onSelectDate={syncSelectedDate}
           onOpenDate={openDayDetails}

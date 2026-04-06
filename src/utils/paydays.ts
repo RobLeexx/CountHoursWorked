@@ -1,4 +1,4 @@
-import type { PaymentRule, Project } from '@/types';
+import type { PaymentRule, Project, ProjectColor } from '@/types';
 
 import { addDays, fromDateKey, toDateKey } from './dateHelpers';
 
@@ -88,4 +88,22 @@ export function getProjectPaydaysForMonth(project: Project, selectedMonth: Date 
   }
 
   return paydays;
+}
+
+export function getPaydayColorsForMonth(projects: Project[], selectedMonth: Date | string) {
+  const paydayColors: Partial<Record<string, ProjectColor>> = {};
+
+  projects.forEach((project) => {
+    if (!project.color) {
+      return;
+    }
+
+    getProjectPaydaysForMonth(project, selectedMonth).forEach((dateKey) => {
+      if (!paydayColors[dateKey]) {
+        paydayColors[dateKey] = project.color!;
+      }
+    });
+  });
+
+  return paydayColors;
 }

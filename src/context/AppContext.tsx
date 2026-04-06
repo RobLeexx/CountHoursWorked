@@ -3,12 +3,14 @@ import { createContext, useContext, useEffect, useMemo, useState, type PropsWith
 
 import { translate } from '@/i18n';
 import { STORAGE_KEYS } from '@/constants';
+import { PROJECT_COLOR_OPTIONS } from '@/types';
 import type {
   AppLanguage,
   CreateProjectInput,
   CreateWorkLogInput,
   PaymentRule,
   PaymentWeekday,
+  ProjectColor,
   Project,
   SummaryDisplayMode,
   SummaryDisplayPreferences,
@@ -105,6 +107,14 @@ function normalizePaymentWeekday(value: unknown): PaymentWeekday | undefined {
   return value as PaymentWeekday;
 }
 
+function normalizeProjectColor(value?: string | null): ProjectColor | null {
+  if (!value) {
+    return null;
+  }
+
+  return PROJECT_COLOR_OPTIONS.includes(value as ProjectColor) ? (value as ProjectColor) : null;
+}
+
 function normalizePaymentRule(
   paymentRule?: Partial<PaymentRule> | null,
   legacyPayday?: string,
@@ -182,6 +192,7 @@ function normalizeProject(project: StoredProject): Project {
     currency: project.currency === 'USD' ? 'USD' : DEFAULT_PROJECT_CURRENCY,
     contractType: project.contractType ?? 'hourly',
     startDate: normalizedStartDate,
+    color: normalizeProjectColor(project.color),
     paymentRule: normalizePaymentRule(project.paymentRule, project.payday, normalizedStartDate),
     weeklyEstimation: normalizeWeeklyEstimation(project.weeklyEstimation),
     contractFile: project.contractFile,
@@ -382,9 +393,10 @@ export function AppProvider({ children }: PropsWithChildren) {
             : [...currentDates, date],
         );
       },
-      createProject: ({ name, hourlyRate, currency, contractType, startDate, paymentRule, weeklyEstimation, contractFile }) => {
+      createProject: ({ name, hourlyRate, currency, contractType, startDate, color, paymentRule, weeklyEstimation, contractFile }) => {
         const normalizedName = name.trim();
         const normalizedStartDate = startDate.trim();
+        const normalizedColor = normalizeProjectColor(color);
         const normalizedPaymentRule = normalizePaymentRule(paymentRule, undefined, normalizedStartDate);
 
         if (!normalizedName || hourlyRate <= 0 || !normalizedStartDate || !normalizedPaymentRule) {
@@ -398,6 +410,7 @@ export function AppProvider({ children }: PropsWithChildren) {
           currency,
           contractType,
           startDate: normalizedStartDate,
+          color: normalizedColor,
           paymentRule: normalizedPaymentRule,
           weeklyEstimation: normalizeWeeklyEstimation(weeklyEstimation),
           contractFile,
@@ -429,6 +442,7 @@ export function AppProvider({ children }: PropsWithChildren) {
                   : project.hourlyRate,
               currency: updates.currency ?? project.currency,
               startDate: nextStartDate,
+              color: updates.color === undefined ? project.color : normalizeProjectColor(updates.color),
               paymentRule: normalizedPaymentRule,
               name: updates.name?.trim() || project.name,
               weeklyEstimation:

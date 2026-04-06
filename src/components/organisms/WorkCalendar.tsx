@@ -13,6 +13,7 @@ export type WorkCalendarProps = {
   selectedDate: string;
   visibleMonth: Date;
   holidayDates: string[];
+  paydayColors: Partial<Record<string, string>>;
   workLogs: WorkLog[];
   onSelectDate: (dateKey: string) => void;
   onOpenDate: (dateKey: string) => void;
@@ -25,6 +26,7 @@ export function WorkCalendar({
   selectedDate,
   visibleMonth,
   holidayDates,
+  paydayColors,
   workLogs,
   onSelectDate,
   onOpenDate,
@@ -112,7 +114,20 @@ export function WorkCalendar({
           const isSelected = day.dateKey === selectedDate;
           const hasLogs = loggedDates.has(day.dateKey);
           const isHoliday = holidayDateSet.has(day.dateKey);
+          const paydayColor = paydayColors[day.dateKey];
+          const isPayday = Boolean(paydayColor);
           const showTodayRing = day.dateKey === todayKey && !isSelected;
+          const backgroundColor = isHoliday
+            ? isSelected
+              ? theme.colors.warning
+              : theme.colors.warningSoft
+            : isPayday
+              ? paydayColor
+              : isSelected
+                ? theme.colors.primary
+                : theme.colors.surfaceMuted;
+          const dayTextStyle = !isSelected && isHoliday ? { color: theme.colors.warning } : undefined;
+          const showInverseContent = isSelected || isHoliday || isPayday;
 
           return (
             <View key={day.dateKey} style={styles.dayWrapper}>
@@ -121,22 +136,16 @@ export function WorkCalendar({
                 style={[
                   styles.dayCell,
                   {
-                    backgroundColor: isHoliday
-                      ? isSelected
-                        ? theme.colors.warning
-                        : theme.colors.warningSoft
-                      : isSelected
-                        ? theme.colors.primary
-                        : theme.colors.surfaceMuted,
+                    backgroundColor,
                     borderColor: showTodayRing ? theme.colors.primary : 'transparent',
                     opacity: day.isCurrentMonth ? 1 : 0.45,
                   },
                 ]}
               >
                 <AppText
-                  color={isSelected || isHoliday ? 'inverse' : 'text'}
+                  color={showInverseContent ? 'inverse' : 'text'}
                   weight={isSelected || day.isToday ? 'semibold' : 'regular'}
-                  style={!isSelected && isHoliday ? { color: theme.colors.warning } : undefined}
+                  style={dayTextStyle}
                 >
                   {day.dayNumber}
                 </AppText>
@@ -146,7 +155,7 @@ export function WorkCalendar({
                     styles.marker,
                     {
                       backgroundColor: hasLogs
-                        ? isSelected || isHoliday
+                        ? showInverseContent
                           ? theme.colors.inverse
                           : theme.colors.primary
                         : 'transparent',

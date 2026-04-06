@@ -12,6 +12,7 @@ import type {
   PaymentType,
   PaymentWeekday,
   Project,
+  ProjectColor,
   UpdateProjectInput,
   WeekdayEstimationKey,
   WeeklyEstimation,
@@ -27,6 +28,15 @@ import { DateField } from '../molecules/DateField';
 const CONTRACT_TYPES: ContractType[] = ['hourly', 'temporary', 'part-time', 'full-time', 'freelance'];
 const CURRENCIES: CurrencyCode[] = ['EUR', 'USD'];
 const PAYMENT_TYPES: PaymentType[] = ['one_time', 'monthly_fixed_day', 'weekly', 'biweekly'];
+const PROJECT_COLOR_PRESETS: { value: ProjectColor; labelKey: string }[] = [
+  { value: '#EF4444', labelKey: 'projects.red' },
+  { value: '#F97316', labelKey: 'projects.orange' },
+  { value: '#F59E0B', labelKey: 'projects.yellow' },
+  { value: '#10B981', labelKey: 'projects.green' },
+  { value: '#0EA5E9', labelKey: 'projects.blue' },
+  { value: '#6366F1', labelKey: 'projects.indigo' },
+  { value: '#EC4899', labelKey: 'projects.pink' },
+];
 const PAYMENT_WEEKDAY_OPTIONS: { value: PaymentWeekday; labelKey: string }[] = [
   { value: 1, labelKey: 'projects.monHours' },
   { value: 2, labelKey: 'projects.tueHours' },
@@ -172,6 +182,7 @@ type ProjectFormValues = {
   currency: CurrencyCode;
   contractType: ContractType;
   startDate: string;
+  color?: ProjectColor | null;
   paymentRule?: PaymentRule;
   weeklyEstimation?: WeeklyEstimation;
   contractFile?: ContractFile;
@@ -301,6 +312,8 @@ function ProjectForm({ title, submitLabel, initialValues, onSubmit, onCancel }: 
   const [currency, setCurrency] = useState<CurrencyCode>(initialValues.currency);
   const [contractType, setContractType] = useState<ContractType>(initialValues.contractType);
   const [startDate, setStartDate] = useState(initialValues.startDate);
+  const [selectedColor, setSelectedColor] = useState<ProjectColor | null>(initialValues.color ?? null);
+  const [isColorSheetOpen, setColorSheetOpen] = useState(false);
   const [paymentRuleValues, setPaymentRuleValues] = useState<PaymentRuleFormValues>(
     toPaymentRuleFormValues(initialValues.paymentRule, initialValues.startDate),
   );
@@ -316,6 +329,8 @@ function ProjectForm({ title, submitLabel, initialValues, onSubmit, onCancel }: 
     setCurrency(initialValues.currency);
     setContractType(initialValues.contractType);
     setStartDate(initialValues.startDate);
+    setSelectedColor(initialValues.color ?? null);
+    setColorSheetOpen(false);
     setPaymentRuleValues(toPaymentRuleFormValues(initialValues.paymentRule, initialValues.startDate));
     setIsEstimationOpen(Boolean(initialValues.weeklyEstimation));
     setWeeklyEstimation(toWeeklyEstimationState(initialValues.weeklyEstimation));
@@ -334,72 +349,130 @@ function ProjectForm({ title, submitLabel, initialValues, onSubmit, onCancel }: 
   const hasConfiguredEstimation = Object.values(parsedWeeklyEstimation).some((value) => value > 0);
   const paymentRule = buildPaymentRule(paymentRuleValues);
   const canSubmit = Boolean(name.trim()) && parsedRate !== null && parsedRate > 0 && Boolean(startDate) && Boolean(paymentRule);
+  const selectedColorOption = PROJECT_COLOR_PRESETS.find((option) => option.value === selectedColor);
 
   return (
-    <View
-      style={[
-        styles.formCard,
-        {
-          backgroundColor: theme.colors.surfaceMuted,
-          borderColor: theme.colors.border,
-        },
-      ]}
-    >
-      <AppText variant="title" weight="bold">
-        {title}
-      </AppText>
-
-      <AppInput onChangeText={setName} placeholder={t('projects.projectName')} value={name} />
-      <AppInput
-        keyboardType="decimal-pad"
-        onChangeText={setHourlyRate}
-        placeholder={t('projects.hourlyRatePlaceholder', { currency })}
-        value={hourlyRate}
-      />
-      {parsedRate ? (
-        <AppText color="muted" variant="bodySmall">
-          {t('projects.ratePreview', { value: formatCurrency(parsedRate, locale, currency) })}
-        </AppText>
-      ) : null}
-      <View style={styles.fieldBlock}>
-        <AppText variant="bodySmall" color="muted">
-          {t('projects.currency')}
-        </AppText>
-        <View style={styles.typeList}>
-          {CURRENCIES.map((option) => {
-            const isSelected = option === currency;
-
-            return (
-              <Pressable
-                key={option}
-                onPress={() => setCurrency(option)}
-                style={[
-                  styles.typeChip,
-                  {
-                    backgroundColor: isSelected ? theme.colors.primary : theme.colors.surfaceMuted,
-                    borderColor: isSelected ? theme.colors.primary : theme.colors.border,
-                  },
-                ]}
-              >
-                <AppText color={isSelected ? 'inverse' : 'text'} variant="bodySmall" weight="semibold">
-                  {option}
-                </AppText>
-              </Pressable>
-            );
-          })}
-        </View>
-      </View>
-      <DateField label={t('projects.startDate')} onChange={setStartDate} value={startDate} />
-
+    <>
       <View
         style={[
-          styles.accordionCard,
+          styles.formCard,
           {
-            backgroundColor: theme.colors.surface,
+            backgroundColor: theme.colors.surfaceMuted,
             borderColor: theme.colors.border,
           },
         ]}
       >
+        <AppText variant="title" weight="bold">
+          {title}
+        </AppText>
+
+        <AppInput onChangeText={setName} placeholder={t('projects.projectName')} value={name} />
+        <AppInput
+          keyboardType="decimal-pad"
+          onChangeText={setHourlyRate}
+          placeholder={t('projects.hourlyRatePlaceholder', { currency })}
+          value={hourlyRate}
+        />
+        {parsedRate ? (
+          <AppText color="muted" variant="bodySmall">
+            {t('projects.ratePreview', { value: formatCurrency(parsedRate, locale, currency) })}
+          </AppText>
+        ) : null}
+        <View style={styles.fieldBlock}>
+          <AppText variant="bodySmall" color="muted">
+            {t('projects.currency')}
+          </AppText>
+          <View style={styles.typeList}>
+            {CURRENCIES.map((option) => {
+              const isSelected = option === currency;
+
+              return (
+                <Pressable
+                  key={option}
+                  onPress={() => setCurrency(option)}
+                  style={[
+                    styles.typeChip,
+                    {
+                      backgroundColor: isSelected ? theme.colors.primary : theme.colors.surfaceMuted,
+                      borderColor: isSelected ? theme.colors.primary : theme.colors.border,
+                    },
+                  ]}
+                >
+                  <AppText color={isSelected ? 'inverse' : 'text'} variant="bodySmall" weight="semibold">
+                    {option}
+                  </AppText>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+        <DateField label={t('projects.startDate')} onChange={setStartDate} value={startDate} />
+
+        <View style={styles.fieldBlock}>
+          <AppText variant="bodySmall" color="muted">
+            {t('projects.color')}
+          </AppText>
+          <View style={styles.colorActions}>
+            <Pressable
+              onPress={() => setSelectedColor(null)}
+              style={[
+                styles.colorActionButton,
+                {
+                  backgroundColor: theme.colors.surface,
+                  borderColor: selectedColor === null ? theme.colors.primary : theme.colors.border,
+                },
+              ]}
+            >
+              <AppText color={selectedColor === null ? 'primary' : 'text'} variant="bodySmall" weight="semibold">
+                {t('projects.noColor')}
+              </AppText>
+            </Pressable>
+            <Pressable
+              onPress={() => setColorSheetOpen(true)}
+              style={[
+                styles.colorActionButton,
+                styles.chooseColorButton,
+                {
+                  backgroundColor: theme.colors.surface,
+                  borderColor: selectedColor ? theme.colors.primary : theme.colors.border,
+                },
+              ]}
+            >
+              <View style={styles.chooseColorContent}>
+                {selectedColor ? (
+                  <View
+                    style={[
+                      styles.selectedColorSwatch,
+                      {
+                        backgroundColor: selectedColor,
+                      },
+                    ]}
+                  />
+                ) : null}
+                <View style={styles.chooseColorText}>
+                  <AppText color={selectedColor ? 'primary' : 'text'} variant="bodySmall" weight="semibold">
+                    {selectedColor ? t('projects.chosenColor') : t('projects.chooseColor')}
+                  </AppText>
+                  {selectedColorOption ? (
+                    <AppText color="muted" variant="bodySmall">
+                      {t(selectedColorOption.labelKey)}
+                    </AppText>
+                  ) : null}
+                </View>
+              </View>
+            </Pressable>
+          </View>
+        </View>
+
+        <View
+          style={[
+            styles.accordionCard,
+            {
+              backgroundColor: theme.colors.surface,
+              borderColor: theme.colors.border,
+            },
+          ]}
+        >
         <View style={styles.fieldBlock}>
           <AppText weight="semibold">{t('projects.paymentRuleTitle')}</AppText>
           <AppText color="muted" variant="bodySmall">
@@ -521,17 +594,17 @@ function ProjectForm({ title, submitLabel, initialValues, onSubmit, onCancel }: 
             value={paymentRuleValues.paymentStartDate}
           />
         ) : null}
-      </View>
+        </View>
 
-      <View
-        style={[
-          styles.accordionCard,
-          {
-            backgroundColor: theme.colors.surface,
-            borderColor: theme.colors.border,
-          },
-        ]}
-      >
+        <View
+          style={[
+            styles.accordionCard,
+            {
+              backgroundColor: theme.colors.surface,
+              borderColor: theme.colors.border,
+            },
+          ]}
+        >
         <Pressable onPress={() => setIsEstimationOpen((currentValue) => !currentValue)} style={styles.accordionToggle}>
           <View style={styles.accordionText}>
             <AppText weight="semibold">{t('projects.weeklyEstimationTitle')}</AppText>
@@ -566,59 +639,128 @@ function ProjectForm({ title, submitLabel, initialValues, onSubmit, onCancel }: 
             ))}
           </View>
         ) : null}
+        </View>
+
+        <View style={styles.fieldBlock}>
+          <AppText variant="bodySmall" color="muted">
+            {t('projects.contractType')}
+          </AppText>
+          <ContractTypeSelector value={contractType} onChange={setContractType} />
+        </View>
+
+        <View style={styles.fieldBlock}>
+          <AppText variant="bodySmall" color="muted">
+            {t('projects.contractFile')}
+          </AppText>
+          <AppButton
+            title={contractFile ? t('projects.replaceFile') : t('projects.uploadContract')}
+            onPress={async () => {
+              const file = await pickContractFile();
+
+              if (file) {
+                setContractFile(file);
+              }
+            }}
+            variant="secondary"
+            fullWidth={false}
+          />
+          <ContractPreview contractFile={contractFile} />
+        </View>
+
+        <View style={styles.formActions}>
+          {onCancel ? <AppButton title={t('common.cancel')} onPress={onCancel} variant="secondary" fullWidth={false} /> : null}
+          <AppButton
+            title={submitLabel}
+            onPress={() => {
+              if (canSubmit && parsedRate !== null) {
+                const payload = {
+                  name,
+                  hourlyRate: parsedRate,
+                  currency,
+                  contractType,
+                  startDate,
+                  color: selectedColor,
+                  paymentRule,
+                  weeklyEstimation: hasConfiguredEstimation ? parsedWeeklyEstimation : undefined,
+                  contractFile,
+                };
+
+                onSubmit(payload);
+              }
+            }}
+            disabled={!canSubmit}
+            fullWidth={false}
+          />
+        </View>
       </View>
 
-      <View style={styles.fieldBlock}>
-        <AppText variant="bodySmall" color="muted">
-          {t('projects.contractType')}
-        </AppText>
-        <ContractTypeSelector value={contractType} onChange={setContractType} />
-      </View>
+      <Modal animationType="fade" transparent visible={isColorSheetOpen} onRequestClose={() => setColorSheetOpen(false)}>
+        <View style={styles.colorSheetOverlay}>
+          <Pressable style={styles.colorSheetBackdrop} onPress={() => setColorSheetOpen(false)} />
+          <View
+            style={[
+              styles.colorSheetCard,
+              {
+                backgroundColor: theme.colors.surface,
+                borderColor: theme.colors.border,
+              },
+            ]}
+          >
+            <View style={styles.colorSheetHandleWrapper}>
+              <View
+                style={[
+                  styles.colorSheetHandle,
+                  {
+                    backgroundColor: theme.colors.borderStrong,
+                  },
+                ]}
+              />
+            </View>
+            <AppText variant="title" weight="bold">
+              {t('projects.colorSheetTitle')}
+            </AppText>
+            <AppText color="muted" variant="bodySmall">
+              {t('projects.colorSheetDescription')}
+            </AppText>
+            <View style={styles.colorSheetGrid}>
+              {PROJECT_COLOR_PRESETS.map((option) => {
+                const isSelected = selectedColor === option.value;
 
-      <View style={styles.fieldBlock}>
-        <AppText variant="bodySmall" color="muted">
-          {t('projects.contractFile')}
-        </AppText>
-        <AppButton
-          title={contractFile ? t('projects.replaceFile') : t('projects.uploadContract')}
-          onPress={async () => {
-            const file = await pickContractFile();
-
-            if (file) {
-              setContractFile(file);
-            }
-          }}
-          variant="secondary"
-          fullWidth={false}
-        />
-        <ContractPreview contractFile={contractFile} />
-      </View>
-
-      <View style={styles.formActions}>
-        {onCancel ? <AppButton title={t('common.cancel')} onPress={onCancel} variant="secondary" fullWidth={false} /> : null}
-        <AppButton
-          title={submitLabel}
-          onPress={() => {
-            if (canSubmit && parsedRate !== null) {
-              const payload = {
-                name,
-                hourlyRate: parsedRate,
-                currency,
-                contractType,
-                startDate,
-                paymentRule,
-                weeklyEstimation: hasConfiguredEstimation ? parsedWeeklyEstimation : undefined,
-                contractFile,
-              };
-
-              onSubmit(payload);
-            }
-          }}
-          disabled={!canSubmit}
-          fullWidth={false}
-        />
-      </View>
-    </View>
+                return (
+                  <Pressable
+                    key={option.value}
+                    onPress={() => {
+                      setSelectedColor(option.value);
+                      setColorSheetOpen(false);
+                    }}
+                    style={[
+                      styles.colorOptionCard,
+                      {
+                        backgroundColor: theme.colors.surfaceMuted,
+                        borderColor: isSelected ? theme.colors.primary : theme.colors.border,
+                      },
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.colorOptionSwatch,
+                        {
+                          backgroundColor: option.value,
+                        },
+                      ]}
+                    />
+                    <AppText color={isSelected ? 'primary' : 'text'} variant="bodySmall" weight="semibold">
+                      {t(option.labelKey)}
+                    </AppText>
+                  </Pressable>
+                );
+              })}
+            </View>
+            <AppButton title={t('common.close')} onPress={() => setColorSheetOpen(false)} variant="secondary" />
+          </View>
+        </View>
+      </Modal>
+    </>
   );
 }
 
@@ -728,6 +870,7 @@ export function ProjectsManager({
                         currency: editingProject.currency,
                         contractType: editingProject.contractType,
                         startDate: editingProject.startDate,
+                        color: editingProject.color,
                         paymentRule: editingProject.paymentRule,
                         weeklyEstimation: editingProject.weeklyEstimation,
                         contractFile: editingProject.contractFile,
@@ -753,6 +896,7 @@ export function ProjectsManager({
               currency: 'EUR',
               contractType: 'hourly',
               startDate: toDateKey(new Date()),
+              color: null,
               paymentRule: {
                 type: 'one_time',
                 paymentDate: toDateKey(new Date()),
@@ -879,11 +1023,40 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 8,
   },
+  colorActions: {
+    flexDirection: 'row',
+    gap: 10,
+  },
   typeChip: {
     borderRadius: 14,
     borderWidth: 1,
     paddingHorizontal: 12,
     paddingVertical: 10,
+  },
+  colorActionButton: {
+    borderRadius: 14,
+    borderWidth: 1,
+    minHeight: 48,
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  chooseColorButton: {
+    flex: 1,
+  },
+  chooseColorContent: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 10,
+  },
+  chooseColorText: {
+    flex: 1,
+    gap: 2,
+  },
+  selectedColorSwatch: {
+    borderRadius: 999,
+    height: 18,
+    width: 18,
   },
   previewBlock: {
     gap: 8,
@@ -938,5 +1111,47 @@ const styles = StyleSheet.create({
   modalActions: {
     flexDirection: 'row',
     gap: 10,
+  },
+  colorSheetOverlay: {
+    backgroundColor: 'rgba(15, 23, 42, 0.4)',
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  colorSheetBackdrop: {
+    flex: 1,
+  },
+  colorSheetCard: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderWidth: 1,
+    gap: 14,
+    padding: 20,
+  },
+  colorSheetHandleWrapper: {
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  colorSheetHandle: {
+    borderRadius: 999,
+    height: 5,
+    width: 44,
+  },
+  colorSheetGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  colorOptionCard: {
+    alignItems: 'center',
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 10,
+    minWidth: '47%',
+    padding: 14,
+  },
+  colorOptionSwatch: {
+    borderRadius: 999,
+    height: 28,
+    width: 28,
   },
 });

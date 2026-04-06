@@ -11,6 +11,8 @@ export type WeekdayEstimationKey =
   | 'sunHours';
 
 export type WeeklyEstimation = Record<WeekdayEstimationKey, number>;
+export const PROJECT_COLOR_OPTIONS = ['#EF4444', '#F97316', '#F59E0B', '#10B981', '#0EA5E9', '#6366F1', '#EC4899'] as const;
+export type ProjectColor = (typeof PROJECT_COLOR_OPTIONS)[number];
 export type PaymentType = 'one_time' | 'monthly_fixed_day' | 'weekly' | 'biweekly';
 export type PaymentWeekday = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 
@@ -54,6 +56,7 @@ export type Project = {
   currency: CurrencyCode;
   contractType: ContractType;
   startDate: string;
+  color?: ProjectColor | null;
   paymentRule?: PaymentRule;
   weeklyEstimation?: WeeklyEstimation;
   contractFile?: ContractFile;
@@ -65,6 +68,7 @@ export type CreateProjectInput = {
   currency: CurrencyCode;
   contractType: ContractType;
   startDate: string;
+  color?: ProjectColor | null;
   paymentRule?: PaymentRule;
   weeklyEstimation?: WeeklyEstimation;
   contractFile?: ContractFile;
