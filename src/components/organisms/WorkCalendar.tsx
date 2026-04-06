@@ -73,14 +73,24 @@ export function WorkCalendar({
           accessibilityLabel={t('calendar.previousMonth')}
           icon="chevron-back"
           onPress={() => onChangeMonth('previous')}
+          style={styles.monthButton}
         />
-        <AppText variant="title" weight="bold">
+        <AppText
+          variant="title"
+          weight="bold"
+          align="center"
+          adjustsFontSizeToFit
+          minimumFontScale={0.75}
+          numberOfLines={1}
+          style={styles.monthLabel}
+        >
           {formatMonthLabel(visibleMonth, locale)}
         </AppText>
         <AppIconButton
           accessibilityLabel={t('calendar.nextMonth')}
           icon="chevron-forward"
           onPress={() => onChangeMonth('next')}
+          style={styles.monthButton}
         />
       </View>
 
@@ -159,7 +169,14 @@ const styles = StyleSheet.create({
   monthRow: {
     alignItems: 'center',
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    gap: 12,
+  },
+  monthButton: {
+    flexShrink: 0,
+  },
+  monthLabel: {
+    flex: 1,
+    minWidth: 0,
   },
   weekdayRow: {
     flexDirection: 'row',

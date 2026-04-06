@@ -5,7 +5,7 @@ import { useAppContext } from '@/context';
 import type { CurrencyTotals } from '@/utils';
 import type { SummaryDisplayMode, SummaryMetricKey } from '@/types';
 import { useAppTheme } from '@/theme';
-import { formatCurrency, formatMonthName } from '@/utils';
+import { formatCurrency, formatShortMonthName } from '@/utils';
 
 import { AppText } from '../atoms/AppText';
 
@@ -106,7 +106,7 @@ export function Summary({
   projectionMonth,
 }: SummaryProps) {
   const { locale, summaryDisplayPreferences, summaryDisplayPreset, t } = useAppContext();
-  const projectionMonthName = formatMonthName(projectionMonth, locale);
+  const projectionMonthName = formatShortMonthName(projectionMonth, locale);
   const items = useMemo<SummaryItemConfig[]>(
     () => [
       {

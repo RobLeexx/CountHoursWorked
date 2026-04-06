@@ -150,14 +150,24 @@ export function ProjectionsScreen() {
             accessibilityLabel={t('calendar.previousMonth')}
             icon="chevron-back"
             onPress={() => setVisibleMonth((currentMonth) => addMonths(currentMonth, -1))}
+            style={styles.monthButton}
           />
-          <AppText variant="title" weight="bold">
+          <AppText
+            variant="title"
+            weight="bold"
+            align="center"
+            adjustsFontSizeToFit
+            minimumFontScale={0.75}
+            numberOfLines={1}
+            style={styles.monthLabel}
+          >
             {formatMonthLabel(visibleMonth, locale)}
           </AppText>
           <AppIconButton
             accessibilityLabel={t('calendar.nextMonth')}
             icon="chevron-forward"
             onPress={() => setVisibleMonth((currentMonth) => addMonths(currentMonth, 1))}
+            style={styles.monthButton}
           />
         </View>
         <AppText variant="title" weight="bold">
@@ -190,7 +200,14 @@ const styles = StyleSheet.create({
   monthRow: {
     alignItems: 'center',
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    gap: 12,
+  },
+  monthButton: {
+    flexShrink: 0,
+  },
+  monthLabel: {
+    flex: 1,
+    minWidth: 0,
   },
   row: {
     alignItems: 'center',

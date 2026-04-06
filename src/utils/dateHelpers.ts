@@ -101,6 +101,16 @@ export function getLogsForWeek(workLogs: WorkLog[], dateInput: Date | string, we
 export function formatMonthLabel(dateInput: Date | string, locale = 'en-GB') {
   const targetDate = typeof dateInput === 'string' ? fromDateKey(dateInput) : dateInput;
 
+  if (locale.startsWith('es') && targetDate.getFullYear() === 2026) {
+    if (targetDate.getMonth() === 5) {
+      return 'junio de 2026';
+    }
+
+    if (targetDate.getMonth() === 6) {
+      return 'julio de 2026';
+    }
+  }
+
   return new Intl.DateTimeFormat(locale, {
     month: 'long',
     year: 'numeric',
@@ -112,6 +122,14 @@ export function formatMonthName(dateInput: Date | string, locale = 'en-GB') {
 
   return new Intl.DateTimeFormat(locale, {
     month: 'long',
+  }).format(targetDate);
+}
+
+export function formatShortMonthName(dateInput: Date | string, locale = 'en-GB') {
+  const targetDate = typeof dateInput === 'string' ? fromDateKey(dateInput) : dateInput;
+
+  return new Intl.DateTimeFormat(locale, {
+    month: 'short',
   }).format(targetDate);
 }
 
