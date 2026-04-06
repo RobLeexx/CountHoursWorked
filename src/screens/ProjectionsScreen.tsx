@@ -54,8 +54,10 @@ function buildCurrencyRows(
 function renderProjectionRows(rows: ProjectionRow[]) {
   return rows.map((row) => (
     <View key={row.key} style={styles.row}>
-      <AppText color="muted">{row.label}</AppText>
-      <AppText variant="title" weight="bold">
+      <AppText color="muted" style={styles.rowLabel}>
+        {row.label}
+      </AppText>
+      <AppText variant="title" weight="bold" align="right" style={styles.rowValue}>
         {row.value}
       </AppText>
     </View>
@@ -79,6 +81,18 @@ export function ProjectionsScreen() {
     ]),
   ) as CurrencyCode[];
   const hasProjectionData = currencies.length > 0 || projection.totalProjectedHours > 0;
+  const loggedAdjustmentDisplayHours = Number(
+    (projection.holidayExtraHours + projection.loggedDayAdjustmentHours).toFixed(2),
+  );
+  const loggedAdjustmentDisplayEarnings: CurrencyTotals = currencies.reduce<CurrencyTotals>((totals, currency) => {
+    totals[currency] = Number(
+      (
+        (projection.holidayExtraEarningsByCurrency[currency] ?? 0) +
+        (projection.loggedDayAdjustmentEarningsByCurrency[currency] ?? 0)
+      ).toFixed(2),
+    );
+    return totals;
+  }, {});
   const hourRows: ProjectionRow[] = [
     {
       key: 'base-hours',
@@ -93,7 +107,7 @@ export function ProjectionsScreen() {
     {
       key: 'logged-adjustment-hours',
       label: t('projections.loggedDayAdjustmentHours'),
-      value: formatSignedHours(projection.loggedDayAdjustmentHours),
+      value: formatSignedHours(loggedAdjustmentDisplayHours),
     },
     {
       key: 'final-total-hours',
@@ -121,7 +135,7 @@ export function ProjectionsScreen() {
     currencies,
     t('projections.loggedDayAdjustmentEarnings'),
     'adjustment',
-    projection.loggedDayAdjustmentEarningsByCurrency,
+    loggedAdjustmentDisplayEarnings,
     locale,
     formatSignedCurrency,
   );
@@ -210,8 +224,16 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   row: {
-    alignItems: 'center',
+    alignItems: 'flex-start',
     flexDirection: 'row',
+    gap: 12,
     justifyContent: 'space-between',
+  },
+  rowLabel: {
+    flex: 1,
+  },
+  rowValue: {
+    flexShrink: 0,
+    minWidth: 84,
   },
 });
