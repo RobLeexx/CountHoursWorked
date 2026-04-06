@@ -155,13 +155,30 @@ export function SettingsScreen() {
               />
             </View>
           ) : null}
-          <View style={styles.group}>
-            <AppText weight="semibold">{t('settings.resetData')}</AppText>
+          <View
+            style={[
+              styles.group,
+              styles.dangerSection,
+              {
+                backgroundColor: theme.colors.surfaceMuted,
+                borderColor: theme.colors.border,
+              },
+            ]}
+          >
+            <AppText weight="bold" color="text">
+              {t('settings.resetData')}
+            </AppText>
             <AppText color="muted">{t('settings.resetDescription')}</AppText>
             <AppButton
               title={t('settings.resetData')}
               onPress={() => setShowResetModal(true)}
-              variant="secondary"
+              style={{
+                backgroundColor: theme.colors.danger,
+                borderColor: theme.colors.danger,
+              }}
+              textStyle={{
+                color: theme.colors.inverse,
+              }}
               fullWidth={false}
             />
           </View>
@@ -179,7 +196,7 @@ export function SettingsScreen() {
               },
             ]}
           >
-            <AppText variant="title" weight="bold">
+            <AppText variant="title" weight="bold" color="danger">
               {t('settings.resetConfirmTitle')}
             </AppText>
             <AppText color="muted">{t('settings.resetConfirmBody')}</AppText>
@@ -192,6 +209,13 @@ export function SettingsScreen() {
               />
               <AppButton
                 title={t('common.reset')}
+                style={{
+                  backgroundColor: theme.colors.danger,
+                  borderColor: theme.colors.danger,
+                }}
+                textStyle={{
+                  color: theme.colors.inverse,
+                }}
                 onPress={() => {
                   resetData();
                   setShowResetModal(false);
@@ -215,6 +239,11 @@ const styles = StyleSheet.create({
   },
   group: {
     gap: 10,
+  },
+  dangerSection: {
+    borderRadius: 18,
+    borderWidth: 1,
+    padding: 16,
   },
   optionRow: {
     flexDirection: 'row',
