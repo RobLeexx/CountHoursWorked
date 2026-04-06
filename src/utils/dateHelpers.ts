@@ -94,8 +94,19 @@ export function getLogsForMonth(workLogs: WorkLog[], dateInput: Date | string) {
 }
 
 export function getLogsForWeek(workLogs: WorkLog[], dateInput: Date | string, weekStart: WeekStart = 'monday') {
-  const { start, end } = getWeekRange(dateInput, weekStart);
-  return workLogs.filter((log) => isDateInRange(log.date, start, end));
+  const targetDate = typeof dateInput === 'string' ? fromDateKey(dateInput) : dateInput;
+  const { start, end } = getWeekRange(targetDate, weekStart);
+  const month = targetDate.getMonth();
+  const year = targetDate.getFullYear();
+
+  return workLogs.filter((log) => {
+    if (!isDateInRange(log.date, start, end)) {
+      return false;
+    }
+
+    const logDate = fromDateKey(log.date);
+    return logDate.getMonth() === month && logDate.getFullYear() === year;
+  });
 }
 
 export function formatMonthLabel(dateInput: Date | string, locale = 'en-GB') {

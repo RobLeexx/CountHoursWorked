@@ -21,6 +21,11 @@ export type WorkCalendarProps = {
 };
 
 const DOUBLE_TAP_DELAY_MS = 280;
+const SOFT_PAYDAY_ALPHA = '26';
+
+function withHexOpacity(color: string, alphaHex: string) {
+  return color.length === 7 ? `${color}${alphaHex}` : color;
+}
 
 export function WorkCalendar({
   selectedDate,
@@ -122,12 +127,20 @@ export function WorkCalendar({
               ? theme.colors.warning
               : theme.colors.warningSoft
             : isPayday
-              ? paydayColor
+              ? isSelected
+                ? paydayColor
+                : withHexOpacity(paydayColor!, SOFT_PAYDAY_ALPHA)
               : isSelected
                 ? theme.colors.primary
                 : theme.colors.surfaceMuted;
-          const dayTextStyle = !isSelected && isHoliday ? { color: theme.colors.warning } : undefined;
-          const showInverseContent = isSelected || isHoliday || isPayday;
+          const dayTextStyle = !isSelected
+            ? isHoliday
+              ? { color: theme.colors.warning }
+              : isPayday
+                ? { color: paydayColor }
+                : undefined
+            : undefined;
+          const showInverseContent = isSelected || isHoliday;
 
           return (
             <View key={day.dateKey} style={styles.dayWrapper}>
@@ -157,6 +170,8 @@ export function WorkCalendar({
                       backgroundColor: hasLogs
                         ? showInverseContent
                           ? theme.colors.inverse
+                          : isPayday
+                            ? paydayColor
                           : theme.colors.primary
                         : 'transparent',
                     },

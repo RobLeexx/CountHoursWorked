@@ -31,10 +31,11 @@ const PAYMENT_TYPES: PaymentType[] = ['one_time', 'monthly_fixed_day', 'weekly',
 const PROJECT_COLOR_PRESETS: { value: ProjectColor; labelKey: string }[] = [
   { value: '#EF4444', labelKey: 'projects.red' },
   { value: '#F97316', labelKey: 'projects.orange' },
-  { value: '#F59E0B', labelKey: 'projects.yellow' },
   { value: '#10B981', labelKey: 'projects.green' },
+  { value: '#14B8A6', labelKey: 'projects.teal' },
   { value: '#0EA5E9', labelKey: 'projects.blue' },
   { value: '#6366F1', labelKey: 'projects.indigo' },
+  { value: '#8B5CF6', labelKey: 'projects.purple' },
   { value: '#EC4899', labelKey: 'projects.pink' },
 ];
 const PAYMENT_WEEKDAY_OPTIONS: { value: PaymentWeekday; labelKey: string }[] = [
