@@ -7,6 +7,8 @@ import type {
   AppLanguage,
   CreateProjectInput,
   CreateWorkLogInput,
+  PaymentRule,
+  PaymentWeekday,
   Project,
   SummaryDisplayMode,
   SummaryDisplayPreferences,
@@ -65,6 +67,9 @@ const DEFAULT_SUMMARY_DISPLAY_PREFERENCES: SummaryDisplayPreferences = {
   projection: 'hours',
 };
 const DEFAULT_SUMMARY_DISPLAY_PRESET: SummaryDisplayPreset = 'hours';
+type StoredProject = Partial<Project> & {
+  payday?: string;
+};
 
 function normalizeWeeklyEstimation(weeklyEstimation?: Partial<WeeklyEstimation>) {
   if (!weeklyEstimation) {
@@ -84,14 +89,96 @@ function normalizeWeeklyEstimation(weeklyEstimation?: Partial<WeeklyEstimation>)
   return Object.values(normalizedValue).some((value) => value > 0) ? normalizedValue : undefined;
 }
 
-function normalizeProject(project: Partial<Project>): Project {
+function isValidDateKey(value?: string): value is string {
+  return Boolean(value?.trim() && /^\d{4}-\d{2}-\d{2}$/.test(value.trim()));
+}
+
+function normalizePaymentWeekday(value: unknown): PaymentWeekday | undefined {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 0 || value > 6) {
+    return undefined;
+  }
+
+  return value as PaymentWeekday;
+}
+
+function normalizePaymentRule(
+  paymentRule?: Partial<PaymentRule> | null,
+  legacyPayday?: string,
+  fallbackDate?: string,
+): PaymentRule | undefined {
+  if (paymentRule?.type === 'one_time' && isValidDateKey(paymentRule.paymentDate)) {
+    const paymentDate = paymentRule.paymentDate.trim();
+
+    return {
+      type: 'one_time',
+      paymentDate,
+    };
+  }
+
+  if (paymentRule?.type === 'monthly_fixed_day') {
+    const paymentDayOfMonth = Number(paymentRule.paymentDayOfMonth);
+
+    if (Number.isInteger(paymentDayOfMonth) && paymentDayOfMonth >= 1 && paymentDayOfMonth <= 31) {
+      return {
+        type: 'monthly_fixed_day',
+        paymentDayOfMonth,
+      };
+    }
+  }
+
+  if (paymentRule?.type === 'weekly') {
+    const paymentWeekday = normalizePaymentWeekday(paymentRule.paymentWeekday);
+
+    if (paymentWeekday !== undefined) {
+      return {
+        type: 'weekly',
+        paymentWeekday,
+      };
+    }
+  }
+
+  if (paymentRule?.type === 'biweekly' && isValidDateKey(paymentRule.paymentStartDate)) {
+    const paymentStartDate = paymentRule.paymentStartDate.trim();
+
+    return {
+      type: 'biweekly',
+      paymentStartDate,
+      paymentWeekday: normalizePaymentWeekday(paymentRule.paymentWeekday),
+    };
+  }
+
+  if (isValidDateKey(legacyPayday)) {
+    const paymentDate = legacyPayday.trim();
+
+    return {
+      type: 'one_time',
+      paymentDate,
+    };
+  }
+
+  if (isValidDateKey(fallbackDate)) {
+    const paymentDate = fallbackDate.trim();
+
+    return {
+      type: 'one_time',
+      paymentDate,
+    };
+  }
+
+  return undefined;
+}
+
+function normalizeProject(project: StoredProject): Project {
+  const normalizedStartDate = project.startDate?.trim() ?? '';
+
   return {
     id: project.id ?? createId('project'),
     name: project.name?.trim() ?? '',
     hourlyRate: Number(project.hourlyRate ?? 0),
     currency: project.currency === 'USD' ? 'USD' : DEFAULT_PROJECT_CURRENCY,
     contractType: project.contractType ?? 'hourly',
-    startDate: project.startDate?.trim() ?? '',
+    startDate: normalizedStartDate,
+    paymentRule: normalizePaymentRule(project.paymentRule, project.payday, normalizedStartDate),
     weeklyEstimation: normalizeWeeklyEstimation(project.weeklyEstimation),
     contractFile: project.contractFile,
   };
@@ -170,7 +257,7 @@ export function AppProvider({ children }: PropsWithChildren) {
         }
 
         if (storedProjects) {
-          setProjects((JSON.parse(storedProjects) as Partial<Project>[]).map(normalizeProject));
+          setProjects((JSON.parse(storedProjects) as StoredProject[]).map(normalizeProject));
         }
 
         if (storedWorkLogs) {
@@ -291,11 +378,12 @@ export function AppProvider({ children }: PropsWithChildren) {
             : [...currentDates, date],
         );
       },
-      createProject: ({ name, hourlyRate, currency, contractType, startDate, weeklyEstimation, contractFile }) => {
+      createProject: ({ name, hourlyRate, currency, contractType, startDate, paymentRule, weeklyEstimation, contractFile }) => {
         const normalizedName = name.trim();
         const normalizedStartDate = startDate.trim();
+        const normalizedPaymentRule = normalizePaymentRule(paymentRule, undefined, normalizedStartDate);
 
-        if (!normalizedName || hourlyRate <= 0 || !normalizedStartDate) {
+        if (!normalizedName || hourlyRate <= 0 || !normalizedStartDate || !normalizedPaymentRule) {
           return null;
         }
 
@@ -306,6 +394,7 @@ export function AppProvider({ children }: PropsWithChildren) {
           currency,
           contractType,
           startDate: normalizedStartDate,
+          paymentRule: normalizedPaymentRule,
           weeklyEstimation: normalizeWeeklyEstimation(weeklyEstimation),
           contractFile,
         };
@@ -321,6 +410,12 @@ export function AppProvider({ children }: PropsWithChildren) {
               return project;
             }
 
+            const nextStartDate = updates.startDate?.trim() || project.startDate;
+            const normalizedPaymentRule =
+              updates.paymentRule === undefined
+                ? project.paymentRule
+                : normalizePaymentRule(updates.paymentRule, undefined, nextStartDate) ?? project.paymentRule;
+
             return {
               ...project,
               ...updates,
@@ -329,7 +424,8 @@ export function AppProvider({ children }: PropsWithChildren) {
                   ? Number(updates.hourlyRate.toFixed(2))
                   : project.hourlyRate,
               currency: updates.currency ?? project.currency,
-              startDate: updates.startDate?.trim() || project.startDate,
+              startDate: nextStartDate,
+              paymentRule: normalizedPaymentRule,
               name: updates.name?.trim() || project.name,
               weeklyEstimation:
                 updates.weeklyEstimation === undefined

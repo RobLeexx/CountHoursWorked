@@ -8,6 +8,9 @@ import type {
   ContractType,
   CreateProjectInput,
   CurrencyCode,
+  PaymentRule,
+  PaymentType,
+  PaymentWeekday,
   Project,
   UpdateProjectInput,
   WeekdayEstimationKey,
@@ -23,6 +26,16 @@ import { DateField } from '../molecules/DateField';
 
 const CONTRACT_TYPES: ContractType[] = ['hourly', 'temporary', 'part-time', 'full-time', 'freelance'];
 const CURRENCIES: CurrencyCode[] = ['EUR', 'USD'];
+const PAYMENT_TYPES: PaymentType[] = ['one_time', 'monthly_fixed_day', 'weekly', 'biweekly'];
+const PAYMENT_WEEKDAY_OPTIONS: { value: PaymentWeekday; labelKey: string }[] = [
+  { value: 1, labelKey: 'projects.monHours' },
+  { value: 2, labelKey: 'projects.tueHours' },
+  { value: 3, labelKey: 'projects.wedHours' },
+  { value: 4, labelKey: 'projects.thuHours' },
+  { value: 5, labelKey: 'projects.friHours' },
+  { value: 6, labelKey: 'projects.satHours' },
+  { value: 0, labelKey: 'projects.sunHours' },
+];
 const WEEKDAY_FIELDS: { key: WeekdayEstimationKey; labelKey: string }[] = [
   { key: 'monHours', labelKey: 'projects.monHours' },
   { key: 'tueHours', labelKey: 'projects.tueHours' },
@@ -54,6 +67,100 @@ function toWeeklyEstimationState(weeklyEstimation?: WeeklyEstimation): Record<We
   };
 }
 
+type PaymentRuleFormValues = {
+  paymentType: PaymentType;
+  paymentDate: string;
+  paymentDayOfMonth: string;
+  paymentWeekday: PaymentWeekday;
+  paymentStartDate: string;
+};
+
+function toPaymentRuleFormValues(paymentRule: PaymentRule | undefined, startDate: string): PaymentRuleFormValues {
+  const fallbackDate = startDate || toDateKey(new Date());
+  const fallbackWeekday = fromDateKey(fallbackDate).getDay() as PaymentWeekday;
+
+  switch (paymentRule?.type) {
+    case 'one_time':
+      return {
+        paymentType: 'one_time',
+        paymentDate: paymentRule.paymentDate,
+        paymentDayOfMonth: String(fromDateKey(paymentRule.paymentDate).getDate()),
+        paymentWeekday: fromDateKey(paymentRule.paymentDate).getDay() as PaymentWeekday,
+        paymentStartDate: paymentRule.paymentDate,
+      };
+    case 'monthly_fixed_day':
+      return {
+        paymentType: 'monthly_fixed_day',
+        paymentDate: fallbackDate,
+        paymentDayOfMonth: String(paymentRule.paymentDayOfMonth),
+        paymentWeekday: fallbackWeekday,
+        paymentStartDate: fallbackDate,
+      };
+    case 'weekly':
+      return {
+        paymentType: 'weekly',
+        paymentDate: fallbackDate,
+        paymentDayOfMonth: String(fromDateKey(fallbackDate).getDate()),
+        paymentWeekday: paymentRule.paymentWeekday,
+        paymentStartDate: fallbackDate,
+      };
+    case 'biweekly':
+      return {
+        paymentType: 'biweekly',
+        paymentDate: fallbackDate,
+        paymentDayOfMonth: String(fromDateKey(fallbackDate).getDate()),
+        paymentWeekday: paymentRule.paymentWeekday ?? (fromDateKey(paymentRule.paymentStartDate).getDay() as PaymentWeekday),
+        paymentStartDate: paymentRule.paymentStartDate,
+      };
+    default:
+      return {
+        paymentType: 'one_time',
+        paymentDate: fallbackDate,
+        paymentDayOfMonth: String(fromDateKey(fallbackDate).getDate()),
+        paymentWeekday: fallbackWeekday,
+        paymentStartDate: fallbackDate,
+      };
+  }
+}
+
+function buildPaymentRule(values: PaymentRuleFormValues): PaymentRule | undefined {
+  switch (values.paymentType) {
+    case 'one_time':
+      return values.paymentDate
+        ? {
+            type: 'one_time',
+            paymentDate: values.paymentDate,
+          }
+        : undefined;
+    case 'monthly_fixed_day': {
+      const paymentDayOfMonth = Number(values.paymentDayOfMonth);
+
+      if (!Number.isInteger(paymentDayOfMonth) || paymentDayOfMonth < 1 || paymentDayOfMonth > 31) {
+        return undefined;
+      }
+
+      return {
+        type: 'monthly_fixed_day',
+        paymentDayOfMonth,
+      };
+    }
+    case 'weekly':
+      return {
+        type: 'weekly',
+        paymentWeekday: values.paymentWeekday,
+      };
+    case 'biweekly':
+      return values.paymentStartDate
+        ? {
+            type: 'biweekly',
+            paymentStartDate: values.paymentStartDate,
+          }
+        : undefined;
+    default:
+      return undefined;
+  }
+}
+
 type ContractTypeSelectorProps = {
   value: ContractType;
   onChange: (value: ContractType) => void;
@@ -65,6 +172,7 @@ type ProjectFormValues = {
   currency: CurrencyCode;
   contractType: ContractType;
   startDate: string;
+  paymentRule?: PaymentRule;
   weeklyEstimation?: WeeklyEstimation;
   contractFile?: ContractFile;
 };
@@ -193,6 +301,9 @@ function ProjectForm({ title, submitLabel, initialValues, onSubmit, onCancel }: 
   const [currency, setCurrency] = useState<CurrencyCode>(initialValues.currency);
   const [contractType, setContractType] = useState<ContractType>(initialValues.contractType);
   const [startDate, setStartDate] = useState(initialValues.startDate);
+  const [paymentRuleValues, setPaymentRuleValues] = useState<PaymentRuleFormValues>(
+    toPaymentRuleFormValues(initialValues.paymentRule, initialValues.startDate),
+  );
   const [isEstimationOpen, setIsEstimationOpen] = useState(Boolean(initialValues.weeklyEstimation));
   const [weeklyEstimation, setWeeklyEstimation] = useState<Record<WeekdayEstimationKey, string>>(
     toWeeklyEstimationState(initialValues.weeklyEstimation),
@@ -205,13 +316,13 @@ function ProjectForm({ title, submitLabel, initialValues, onSubmit, onCancel }: 
     setCurrency(initialValues.currency);
     setContractType(initialValues.contractType);
     setStartDate(initialValues.startDate);
+    setPaymentRuleValues(toPaymentRuleFormValues(initialValues.paymentRule, initialValues.startDate));
     setIsEstimationOpen(Boolean(initialValues.weeklyEstimation));
     setWeeklyEstimation(toWeeklyEstimationState(initialValues.weeklyEstimation));
     setContractFile(initialValues.contractFile);
   }, [initialValues]);
 
   const parsedRate = parseDecimalInput(hourlyRate);
-  const canSubmit = Boolean(name.trim()) && parsedRate !== null && parsedRate > 0;
   const parsedWeeklyEstimation = WEEKDAY_FIELDS.reduce<WeeklyEstimation>((result, field) => {
     const parsedValue = parseDecimalInput(weeklyEstimation[field.key]);
 
@@ -221,6 +332,8 @@ function ProjectForm({ title, submitLabel, initialValues, onSubmit, onCancel }: 
     };
   }, EMPTY_WEEKLY_ESTIMATION);
   const hasConfiguredEstimation = Object.values(parsedWeeklyEstimation).some((value) => value > 0);
+  const paymentRule = buildPaymentRule(paymentRuleValues);
+  const canSubmit = Boolean(name.trim()) && parsedRate !== null && parsedRate > 0 && Boolean(startDate) && Boolean(paymentRule);
 
   return (
     <View
@@ -277,6 +390,138 @@ function ProjectForm({ title, submitLabel, initialValues, onSubmit, onCancel }: 
         </View>
       </View>
       <DateField label={t('projects.startDate')} onChange={setStartDate} value={startDate} />
+
+      <View
+        style={[
+          styles.accordionCard,
+          {
+            backgroundColor: theme.colors.surface,
+            borderColor: theme.colors.border,
+          },
+        ]}
+      >
+        <View style={styles.fieldBlock}>
+          <AppText weight="semibold">{t('projects.paymentRuleTitle')}</AppText>
+          <AppText color="muted" variant="bodySmall">
+            {t('projects.paymentRuleDescription')}
+          </AppText>
+        </View>
+
+        <View style={styles.fieldBlock}>
+          <AppText variant="bodySmall" color="muted">
+            {t('projects.paymentType')}
+          </AppText>
+          <View style={styles.typeList}>
+            {PAYMENT_TYPES.map((option) => {
+              const isSelected = option === paymentRuleValues.paymentType;
+
+              return (
+                <Pressable
+                  key={option}
+                  onPress={() => {
+                    setPaymentRuleValues((currentValue) => ({
+                      ...currentValue,
+                      paymentType: option,
+                    }));
+                  }}
+                  style={[
+                    styles.typeChip,
+                    {
+                      backgroundColor: isSelected ? theme.colors.primary : theme.colors.surfaceMuted,
+                      borderColor: isSelected ? theme.colors.primary : theme.colors.border,
+                    },
+                  ]}
+                >
+                  <AppText color={isSelected ? 'inverse' : 'text'} variant="bodySmall" weight="semibold">
+                    {t(`projects.${option}`)}
+                  </AppText>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+
+        {paymentRuleValues.paymentType === 'one_time' ? (
+          <DateField
+            label={t('projects.paymentDate')}
+            onChange={(value) => {
+              setPaymentRuleValues((currentValue) => ({
+                ...currentValue,
+                paymentDate: value,
+              }));
+            }}
+            value={paymentRuleValues.paymentDate}
+          />
+        ) : null}
+
+        {paymentRuleValues.paymentType === 'monthly_fixed_day' ? (
+          <View style={styles.fieldBlock}>
+            <AppText variant="bodySmall" color="muted">
+              {t('projects.paymentDayOfMonth')}
+            </AppText>
+            <AppInput
+              keyboardType="number-pad"
+              onChangeText={(value) => {
+                setPaymentRuleValues((currentValue) => ({
+                  ...currentValue,
+                  paymentDayOfMonth: value,
+                }));
+              }}
+              placeholder="30"
+              value={paymentRuleValues.paymentDayOfMonth}
+            />
+          </View>
+        ) : null}
+
+        {paymentRuleValues.paymentType === 'weekly' ? (
+          <View style={styles.fieldBlock}>
+            <AppText variant="bodySmall" color="muted">
+              {t('projects.paymentWeekday')}
+            </AppText>
+            <View style={styles.typeList}>
+              {PAYMENT_WEEKDAY_OPTIONS.map((option) => {
+                const isSelected = option.value === paymentRuleValues.paymentWeekday;
+
+                return (
+                  <Pressable
+                    key={option.value}
+                    onPress={() => {
+                      setPaymentRuleValues((currentValue) => ({
+                        ...currentValue,
+                        paymentWeekday: option.value,
+                      }));
+                    }}
+                    style={[
+                      styles.typeChip,
+                      {
+                        backgroundColor: isSelected ? theme.colors.primary : theme.colors.surfaceMuted,
+                        borderColor: isSelected ? theme.colors.primary : theme.colors.border,
+                      },
+                    ]}
+                  >
+                    <AppText color={isSelected ? 'inverse' : 'text'} variant="bodySmall" weight="semibold">
+                      {t(option.labelKey)}
+                    </AppText>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        ) : null}
+
+        {paymentRuleValues.paymentType === 'biweekly' ? (
+          <DateField
+            label={t('projects.paymentStartDate')}
+            onChange={(value) => {
+              setPaymentRuleValues((currentValue) => ({
+                ...currentValue,
+                paymentStartDate: value,
+              }));
+            }}
+            value={paymentRuleValues.paymentStartDate}
+          />
+        ) : null}
+      </View>
 
       <View
         style={[
@@ -361,6 +606,7 @@ function ProjectForm({ title, submitLabel, initialValues, onSubmit, onCancel }: 
                 currency,
                 contractType,
                 startDate,
+                paymentRule,
                 weeklyEstimation: hasConfiguredEstimation ? parsedWeeklyEstimation : undefined,
                 contractFile,
               };
@@ -482,6 +728,7 @@ export function ProjectsManager({
                         currency: editingProject.currency,
                         contractType: editingProject.contractType,
                         startDate: editingProject.startDate,
+                        paymentRule: editingProject.paymentRule,
                         weeklyEstimation: editingProject.weeklyEstimation,
                         contractFile: editingProject.contractFile,
                       }}
@@ -506,6 +753,10 @@ export function ProjectsManager({
               currency: 'EUR',
               contractType: 'hourly',
               startDate: toDateKey(new Date()),
+              paymentRule: {
+                type: 'one_time',
+                paymentDate: toDateKey(new Date()),
+              },
               weeklyEstimation: undefined,
             }}
             onSubmit={(values) => {

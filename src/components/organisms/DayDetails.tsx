@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { useAppContext } from '@/context';
 import type { Project, WorkLog } from '@/types';
 import { useAppTheme } from '@/theme';
-import { calculateDailyEarnings, formatCurrency, formatLongDate, parseDecimalInput } from '@/utils';
+import { calculateDailyEarnings, formatCurrency, formatLongDate, isPaydayForProject, parseDecimalInput } from '@/utils';
 
 import { AppButton } from '../atoms/AppButton';
 import { AppInput } from '../atoms/AppInput';
@@ -14,6 +14,7 @@ const MAX_HOURS_PER_DAY = 24;
 
 type ProjectChipsProps = {
   projects: Project[];
+  selectedDate: string;
   selectedProjectId: string;
   onSelect: (projectId: string) => void;
 };
@@ -30,14 +31,21 @@ export type DayDetailsProps = {
   onToggleHoliday: () => void;
 };
 
-function ProjectChips({ projects, selectedProjectId, onSelect }: ProjectChipsProps) {
-  const { locale } = useAppContext();
+function ProjectChips({ projects, selectedDate, selectedProjectId, onSelect }: ProjectChipsProps) {
+  const { locale, t } = useAppContext();
   const theme = useAppTheme();
 
   return (
     <View style={styles.projectList}>
       {projects.map((project) => {
         const isSelected = project.id === selectedProjectId;
+        const isPayday = isPaydayForProject(project, selectedDate);
+        const isSpanish = locale.startsWith('es');
+        const projectChipContentStyle = isPayday
+          ? isSpanish
+            ? styles.projectChipContentWithWideBadge
+            : styles.projectChipContentWithCompactBadge
+          : styles.projectChipContentWithoutBadge;
 
         return (
           <Pressable
@@ -51,12 +59,34 @@ function ProjectChips({ projects, selectedProjectId, onSelect }: ProjectChipsPro
               },
             ]}
           >
-            <AppText color={isSelected ? 'inverse' : 'text'} weight="semibold">
-              {project.name}
-            </AppText>
-            <AppText color={isSelected ? 'inverse' : 'muted'} variant="bodySmall">
-              {formatCurrency(project.hourlyRate, locale, project.currency)}/h
-            </AppText>
+            {isPayday ? (
+              <View
+                style={[
+                  styles.paydayBadge,
+                  {
+                    backgroundColor: isSelected ? theme.colors.inverse : theme.colors.surface,
+                    borderColor: isSelected ? theme.colors.inverse : theme.colors.border,
+                  },
+                ]}
+              >
+                <AppText color={isSelected ? 'primary' : 'text'} variant="label" weight="bold">
+                  {t('day.paydayBadge')}
+                </AppText>
+              </View>
+            ) : null}
+            <View style={[styles.projectChipContent, projectChipContentStyle]}>
+              <AppText
+                color={isSelected ? 'inverse' : 'text'}
+                weight="semibold"
+                numberOfLines={isPayday ? 1 : undefined}
+                ellipsizeMode={isPayday ? 'tail' : undefined}
+              >
+                {project.name}
+              </AppText>
+              <AppText color={isSelected ? 'inverse' : 'muted'} variant="bodySmall">
+                {formatCurrency(project.hourlyRate, locale, project.currency)}/h
+              </AppText>
+            </View>
           </Pressable>
         );
       })}
@@ -142,27 +172,33 @@ export function DayDetails({
       ) : (
         <>
           <View style={styles.selectionRow}>
-            <ProjectChips projects={projects} selectedProjectId={selectedProjectId} onSelect={onSelectProject} />
-
-            <Pressable
-              onPress={onToggleHoliday}
-              style={[
-                styles.holidayButton,
-                {
-                  backgroundColor: isHoliday ? theme.colors.warning : theme.colors.warningSoft,
-                  borderColor: theme.colors.warning,
-                },
-              ]}
-            >
-              <AppText
-                style={{
-                  color: isHoliday ? theme.colors.inverse : theme.colors.warning,
-                }}
-                weight="semibold"
+            <ProjectChips
+              projects={projects}
+              selectedDate={selectedDate}
+              selectedProjectId={selectedProjectId}
+              onSelect={onSelectProject}
+            />
+            <View style={styles.selectionSidebar}>
+              <Pressable
+                onPress={onToggleHoliday}
+                style={[
+                  styles.holidayButton,
+                  {
+                    backgroundColor: isHoliday ? theme.colors.warning : theme.colors.warningSoft,
+                    borderColor: theme.colors.warning,
+                  },
+                ]}
               >
-                {t('day.holiday')}
-              </AppText>
-            </Pressable>
+                <AppText
+                  style={{
+                    color: isHoliday ? theme.colors.inverse : theme.colors.warning,
+                  }}
+                  weight="semibold"
+                >
+                  {t('day.holiday')}
+                </AppText>
+              </Pressable>
+            </View>
           </View>
 
           <View style={styles.inputBlock}>
@@ -231,11 +267,39 @@ const styles = StyleSheet.create({
     minWidth: 140,
     paddingHorizontal: 12,
     paddingVertical: 10,
+    position: 'relative',
+  },
+  projectChipContent: {
+    gap: 2,
+    minHeight: 48,
+    paddingTop: 4,
+  },
+  projectChipContentWithoutBadge: {
+    paddingRight: 0,
+  },
+  projectChipContentWithCompactBadge: {
+    paddingRight: 72,
+  },
+  projectChipContentWithWideBadge: {
+    paddingRight: 92,
+  },
+  paydayBadge: {
+    position: 'absolute',
+    right: 8,
+    top: 8,
+    alignItems: 'center',
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
   },
   selectionRow: {
     alignItems: 'stretch',
     flexDirection: 'row',
     gap: 8,
+  },
+  selectionSidebar: {
+    width: 128,
   },
   inputBlock: {
     gap: 6,
@@ -249,9 +313,9 @@ const styles = StyleSheet.create({
   },
   holidayButton: {
     alignItems: 'center',
-    flex: 1,
     borderRadius: 14,
     borderWidth: 1,
+    flex: 1,
     justifyContent: 'center',
     minHeight: 58,
     paddingHorizontal: 14,
