@@ -336,7 +336,17 @@ function ProjectForm({ title, submitLabel, initialValues, onSubmit, onCancel, em
     setIsEstimationOpen(Boolean(initialValues.weeklyEstimation));
     setWeeklyEstimation(toWeeklyEstimationState(initialValues.weeklyEstimation));
     setContractFile(initialValues.contractFile);
-  }, [initialValues]);
+  }, [
+    initialValues.color,
+    initialValues.contractFile,
+    initialValues.contractType,
+    initialValues.currency,
+    initialValues.hourlyRate,
+    initialValues.name,
+    initialValues.paymentRule,
+    initialValues.startDate,
+    initialValues.weeklyEstimation,
+  ]);
 
   const parsedRate = parseDecimalInput(hourlyRate);
   const parsedWeeklyEstimation = WEEKDAY_FIELDS.reduce<WeeklyEstimation>((result, field) => {
@@ -788,6 +798,39 @@ export function ProjectsManager({
     () => projects.find((project) => project.id === editingProjectId),
     [editingProjectId, projects],
   );
+  const createProjectInitialValues = useMemo<ProjectFormValues>(
+    () => ({
+      name: '',
+      hourlyRate: '',
+      currency: 'EUR',
+      contractType: 'hourly',
+      startDate: toDateKey(new Date()),
+      color: null,
+      paymentRule: {
+        type: 'one_time',
+        paymentDate: toDateKey(new Date()),
+      },
+      weeklyEstimation: undefined,
+    }),
+    [],
+  );
+  const editingProjectInitialValues = useMemo<ProjectFormValues | null>(
+    () =>
+      editingProject
+        ? {
+            name: editingProject.name,
+            hourlyRate: String(editingProject.hourlyRate),
+            currency: editingProject.currency,
+            contractType: editingProject.contractType,
+            startDate: editingProject.startDate,
+            color: editingProject.color,
+            paymentRule: editingProject.paymentRule,
+            weeklyEstimation: editingProject.weeklyEstimation,
+            contractFile: editingProject.contractFile,
+          }
+        : null,
+    [editingProject],
+  );
 
   useEffect(() => {
     setCreateOpen(projects.length === 0);
@@ -869,22 +912,12 @@ export function ProjectsManager({
 
                   <ContractPreview contractFile={project.contractFile} />
 
-                  {isEditing && editingProject ? (
+                  {isEditing && editingProject && editingProjectInitialValues ? (
                     <ProjectForm
                       key={editingProject.id}
                       title={t('projects.editTitle')}
                       submitLabel={t('projects.updateInformation')}
-                      initialValues={{
-                        name: editingProject.name,
-                        hourlyRate: String(editingProject.hourlyRate),
-                        currency: editingProject.currency,
-                        contractType: editingProject.contractType,
-                        startDate: editingProject.startDate,
-                        color: editingProject.color,
-                        paymentRule: editingProject.paymentRule,
-                        weeklyEstimation: editingProject.weeklyEstimation,
-                        contractFile: editingProject.contractFile,
-                      }}
+                      initialValues={editingProjectInitialValues}
                       onSubmit={(values) => {
                         onUpdateProject(project.id, values as UpdateProjectInput);
                         setEditingProjectId(null);
@@ -925,19 +958,7 @@ export function ProjectsManager({
                 title={''}
                 submitLabel={t('projects.saveProject')}
                 embedded
-                initialValues={{
-                  name: '',
-                  hourlyRate: '',
-                  currency: 'EUR',
-                  contractType: 'hourly',
-                  startDate: toDateKey(new Date()),
-                  color: null,
-                  paymentRule: {
-                    type: 'one_time',
-                    paymentDate: toDateKey(new Date()),
-                  },
-                  weeklyEstimation: undefined,
-                }}
+                initialValues={createProjectInitialValues}
                 onSubmit={(values) => {
                   const project = onCreateProject(values as CreateProjectInput);
 
