@@ -81,6 +81,7 @@ export const translations: Record<AppLanguage, TranslationTree> = {
     day: {
       holiday: 'Holiday',
       hoursToday: 'Hours today',
+      maxHoursPerDay: 'The total for this day cannot exceed 24 hours.',
       saveHours: 'Save hours',
       noProjects: 'Create a project in the projects section to start logging hours.',
       selectProject: 'Select a project to edit the day.',
@@ -207,6 +208,7 @@ export const translations: Record<AppLanguage, TranslationTree> = {
     day: {
       holiday: 'Día festivo',
       hoursToday: 'Horas de hoy',
+      maxHoursPerDay: 'El total de este día no puede superar las 24 horas.',
       saveHours: 'Guardar horas',
       noProjects: 'Crea un proyecto en la sección de proyectos para empezar a registrar horas.',
       selectProject: 'Selecciona un proyecto para editar el día.',

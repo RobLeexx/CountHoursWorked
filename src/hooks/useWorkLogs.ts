@@ -8,6 +8,8 @@ import {
   toDateKey,
 } from '@/utils';
 
+const MAX_HOURS_PER_DAY = 24;
+
 export function useWorkLogs(selectedDateInput?: string | Date) {
   const { workLogs, projects, addWorkLog, updateWorkLog, deleteWorkLog, weekStart } = useAppContext();
   const selectedDate = selectedDateInput
@@ -30,6 +32,14 @@ export function useWorkLogs(selectedDateInput?: string | Date) {
     getLogForProject,
     setHoursForProject: (projectId: string, hoursWorked: number) => {
       const existingLog = getLogForProject(projectId);
+      const otherProjectHours = dayLogs.reduce(
+        (total, log) => (log.projectId === projectId ? total : total + log.hoursWorked),
+        0,
+      );
+
+      if (hoursWorked < 0 || otherProjectHours + hoursWorked > MAX_HOURS_PER_DAY) {
+        return;
+      }
 
       if (existingLog) {
         updateWorkLog(existingLog.id, { hoursWorked });

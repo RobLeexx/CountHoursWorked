@@ -10,6 +10,8 @@ import { AppButton } from '../atoms/AppButton';
 import { AppInput } from '../atoms/AppInput';
 import { AppText } from '../atoms/AppText';
 
+const MAX_HOURS_PER_DAY = 24;
+
 type ProjectChipsProps = {
   projects: Project[];
   selectedProjectId: string;
@@ -96,7 +98,13 @@ export function DayDetails({
   }, [onSelectProject, projects, selectedProjectId]);
 
   const parsedHours = parseDecimalInput(hoursValue);
-  const canSave = Boolean(selectedProjectId) && parsedHours !== null && parsedHours >= 0;
+  const otherProjectsHours = useMemo(
+    () => dayLogs.reduce((total, log) => (log.projectId === selectedProjectId ? total : total + log.hoursWorked), 0),
+    [dayLogs, selectedProjectId],
+  );
+  const wouldExceedDailyLimit =
+    parsedHours !== null && parsedHours > 0 && otherProjectsHours + parsedHours > MAX_HOURS_PER_DAY;
+  const canSave = Boolean(selectedProjectId) && parsedHours !== null && parsedHours >= 0 && !wouldExceedDailyLimit;
   const currentEarnings =
     currentLog && selectedProject ? calculateDailyEarnings(currentLog, selectedProject) : 0;
   const saveButtonLabel = currentLog ? t('common.update') : t('day.saveHours');
@@ -168,6 +176,11 @@ export function DayDetails({
               placeholder="0"
               value={hoursValue}
             />
+            {wouldExceedDailyLimit ? (
+              <AppText color="danger" variant="bodySmall">
+                {t('day.maxHoursPerDay')}
+              </AppText>
+            ) : null}
           </View>
 
           <View style={styles.inlineMeta}>
