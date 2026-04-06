@@ -189,11 +189,12 @@ type ProjectFormValues = {
 };
 
 type ProjectFormProps = {
-  title: string;
+  title?: string;
   submitLabel: string;
   initialValues: ProjectFormValues;
   onSubmit: (values: CreateProjectInput | UpdateProjectInput) => void;
   onCancel?: () => void;
+  embedded?: boolean;
 };
 
 export type ProjectsManagerProps = {
@@ -304,7 +305,7 @@ async function pickContractFile() {
   } satisfies ContractFile;
 }
 
-function ProjectForm({ title, submitLabel, initialValues, onSubmit, onCancel }: ProjectFormProps) {
+function ProjectForm({ title, submitLabel, initialValues, onSubmit, onCancel, embedded = false }: ProjectFormProps) {
   const { locale, t } = useAppContext();
   const theme = useAppTheme();
   const [name, setName] = useState(initialValues.name);
@@ -356,15 +357,19 @@ function ProjectForm({ title, submitLabel, initialValues, onSubmit, onCancel }: 
       <View
         style={[
           styles.formCard,
-          {
-            backgroundColor: theme.colors.surfaceMuted,
-            borderColor: theme.colors.border,
-          },
+          embedded
+            ? styles.formCardEmbedded
+            : {
+                backgroundColor: theme.colors.surfaceMuted,
+                borderColor: theme.colors.border,
+              },
         ]}
       >
-        <AppText variant="title" weight="bold">
-          {title}
-        </AppText>
+        {title ? (
+          <AppText variant="title" weight="bold">
+            {title}
+          </AppText>
+        ) : null}
 
         <AppInput onChangeText={setName} placeholder={t('projects.projectName')} value={name} />
         <AppInput
@@ -776,12 +781,17 @@ export function ProjectsManager({
   const theme = useAppTheme();
   const isFlatLayout = !showToggle;
   const [isOpen, setIsOpen] = useState(defaultOpen);
+  const [isCreateOpen, setCreateOpen] = useState(false);
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
   const [projectPendingDelete, setProjectPendingDelete] = useState<Project | null>(null);
   const editingProject = useMemo(
     () => projects.find((project) => project.id === editingProjectId),
     [editingProjectId, projects],
   );
+
+  useEffect(() => {
+    setCreateOpen(projects.length === 0);
+  }, [projects.length]);
 
   return (
     <View style={styles.wrapper}>
@@ -887,30 +897,58 @@ export function ProjectsManager({
             })
           )}
 
-          <ProjectForm
-            title={t('projects.createTitle')}
-            submitLabel={t('projects.saveProject')}
-            initialValues={{
-              name: '',
-              hourlyRate: '',
-              currency: 'EUR',
-              contractType: 'hourly',
-              startDate: toDateKey(new Date()),
-              color: null,
-              paymentRule: {
-                type: 'one_time',
-                paymentDate: toDateKey(new Date()),
+          <View
+            style={[
+              styles.accordionCard,
+              {
+                backgroundColor: theme.colors.surfaceMuted,
+                borderColor: theme.colors.border,
               },
-              weeklyEstimation: undefined,
-            }}
-            onSubmit={(values) => {
-              const project = onCreateProject(values as CreateProjectInput);
+            ]}
+          >
+            <Pressable onPress={() => setCreateOpen((currentValue) => !currentValue)} style={styles.accordionToggle}>
+              <View style={styles.accordionText}>
+                <AppText weight="bold" style={styles.accordionTitle}>
+                  {t('projects.createTitle')}
+                </AppText>
+                <AppText color="muted" variant="bodySmall">
+                  {t('projects.createProjectDescription')}
+                </AppText>
+              </View>
+              <AppText color="primary" weight="semibold">
+                {isCreateOpen ? t('common.close') : t('common.create')}
+              </AppText>
+            </Pressable>
 
-              if (project) {
-                setEditingProjectId(null);
-              }
-            }}
-          />
+            {isCreateOpen ? (
+              <ProjectForm
+                title={''}
+                submitLabel={t('projects.saveProject')}
+                embedded
+                initialValues={{
+                  name: '',
+                  hourlyRate: '',
+                  currency: 'EUR',
+                  contractType: 'hourly',
+                  startDate: toDateKey(new Date()),
+                  color: null,
+                  paymentRule: {
+                    type: 'one_time',
+                    paymentDate: toDateKey(new Date()),
+                  },
+                  weeklyEstimation: undefined,
+                }}
+                onSubmit={(values) => {
+                  const project = onCreateProject(values as CreateProjectInput);
+
+                  if (project) {
+                    setEditingProjectId(null);
+                    setCreateOpen(false);
+                  }
+                }}
+              />
+            ) : null}
+          </View>
         </View>
       ) : null}
 
@@ -990,6 +1028,12 @@ const styles = StyleSheet.create({
     gap: 12,
     padding: 16,
   },
+  formCardEmbedded: {
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+    borderRadius: 0,
+    padding: 0,
+  },
   accordionCard: {
     borderRadius: 16,
     borderWidth: 1,
@@ -1005,6 +1049,10 @@ const styles = StyleSheet.create({
   accordionText: {
     flex: 1,
     gap: 4,
+  },
+  accordionTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
   },
   estimationGrid: {
     flexDirection: 'row',
