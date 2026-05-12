@@ -14,3 +14,13 @@ APK
 
 expo-env.d.ts
 # @end expo-cli
+
+# Hyperframes
+workahoric-promo/assets/*
+workahoric-promo/preview/*
+workahoric-promo/renders/*
+workahoric-promo/assets/*
+workahoric-promo/hyperframes.json
+workahoric-promo/index.html
+workahoric-promo/meta.json
+workahoric-promo/package.json
